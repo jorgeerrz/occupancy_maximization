@@ -7,19 +7,10 @@ using InteractiveUtils
 # ╔═╡ 63a9f3aa-31a8-11ec-3238-4f818ccf6b6c
 begin
 	using Pkg
-	Pkg.activate("../Project.toml")
-	using Plots, Distributions, SparseArrays
-	using LinearAlgebra, LightGraphs, NLsolve, PlutoUI, Parameters, GridInterpolations
+	Pkg.activate("Project.toml")
+	using Plots, Distributions, PlutoUI, Parameters
+	using Interpolations, StatsPlots, DelimitedFiles, ZipFile
 end
-
-# ╔═╡ 8ff6f82e-aec2-4acf-8489-615664491049
-using Interpolations
-
-# ╔═╡ 1c559ca0-1e76-49b7-9105-0bf5ee9047cf
-using StatsPlots
-
-# ╔═╡ 25a10797-3d8c-46ec-a04c-21e058568d1c
-using DelimitedFiles
 
 # ╔═╡ 11f37e01-7958-4e79-a8bb-06b92d7cb9ed
 begin
@@ -352,18 +343,9 @@ md" ## Value iteration"
 #Tolerance for iteration, supremum norm
 tolb = 1E-3
 
-# ╔═╡ 7c04e2c3-4157-446d-a065-4bfe7d1931fd
-#To calculate value, uncomment, it takes around 30 minutes for 1.8E6 states
-#h_value,error,t_stop= iteration(ip_b,tolb,1000)
-#Otherwise, read from file
-h_value = readdlm("epsilon_greedy/h_value_g_$(ip_b.γ)_nstates_$(ip_b.nstates).dat");
-
 # ╔═╡ a0b85a14-67af-42d6-b231-1c7d0c293f6e
 #If value calculated, this code stores the value in a dat file
-#writedlm("epsilon_greedy/h_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat",h_value)
-
-# ╔═╡ 8a59e209-9bb6-4066-b6ca-70dac7da33c3
-h_value_int = interpolate_value(h_value,ip_b);
+#writedlm("h_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat",h_value)
 
 # ╔═╡ 21472cb5-d968-4306-b65b-1b25f522dd4d
 md" ## Animation"
@@ -374,9 +356,6 @@ md" ## Animation"
 
 # ╔═╡ c087392c-c411-4368-afcc-f9a104856884
 #gif(anim_b,fps = Int(1/ip_b.Δt),"epsilon_greedy/episode_h_agent_g_$(ip_b.γ)_$(ip_b.nstates)_$(Int(ip_b.Δt*max_t_h_anim))s.gif")
-
-# ╔═╡ 1f425cac-540d-475e-b70d-0eb3af9c833b
-md" ## Survival rate"
 
 # ╔═╡ 6107a0ce-6f01-4d0b-bd43-78f2125ac185
 md"# Q agents (reward maximizer)"
@@ -479,6 +458,18 @@ end
 # ╔═╡ 87c0c3cb-7059-42ae-aed8-98a0ef2eb55f
 ip_q = inverted_pendulum_borders(M = 1.0, m = 0.1,l = 1.,Δt = 0.02, sizeθ = 41, sizew = 41,sizev = 41, sizex = 41, a_s = [-50,-10,0,10,50], max_θ = 0.62, max_x = 2.4, max_v = 3, max_w = 3, nactions = 5, γ = 0.96)
 
+# ╔═╡ 7c04e2c3-4157-446d-a065-4bfe7d1931fd
+#To calculate value, uncomment, it takes around 30 minutes for 1.8E6 states
+#h_value,error,t_stop= iteration(ip_b,tolb,1000)
+#Read from compressed file
+begin
+	h_zip = ZipFile.Reader("h_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat.zip")
+	h_value = readdlm(h_zip.files[1], Float64)
+end
+
+# ╔═╡ 8a59e209-9bb6-4066-b6ca-70dac7da33c3
+h_value_int = interpolate_value(h_value,ip_b);
+
 # ╔═╡ f9b03b4d-c521-4456-b0b9-d4a301d8a813
 md" ## Value iteration"
 
@@ -491,10 +482,15 @@ tol = 1E-3
 #Otherwise, read from file
 
 # ╔═╡ 564cbc7a-3125-4b67-843c-f4c74ccef51f
-q_value = readdlm("epsilon_greedy/q_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat")
+#Read from compressed file
+begin
+	q_zip = ZipFile.Reader("q_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat.zip")
+	q_value = readdlm(q_zip.files[1], Float64)
+end
 
 # ╔═╡ d20c1afe-6d5b-49bf-a0f2-a1bbb21c709f
-#writedlm("epsilon_greedy/q_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat",q_value)
+#If calculated, this line writes the value function in a file
+#writedlm("q_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat",q_value)
 
 # ╔═╡ e9687e3f-be56-44eb-af4d-f169558de0fd
 q_value_int = interpolate_value(q_value,ip_q);
@@ -581,6 +577,9 @@ md" ## Animation"
 # ╔═╡ d8642b83-e824-429e-ac3e-70e875a47d1a
 #gif(anim_q,fps = Int(round(1/ip_q.Δt)),"epsilon_greedy/episode_q_agent_epsilon_$(ϵ_anim)_g_$(ip_q.γ)_$(ip_q.nstates)_$(Int(ip_b.Δt*max_t_q_anim))s.gif")
 
+# ╔═╡ 90aff8bb-ed69-40d3-a22f-112f713f4b93
+md"# Comparison between H and Q agents"
+
 # ╔═╡ 4fad0692-05dc-4c3b-9aae-cd9a43519e51
 md"## ϵ-greedy policy survival rate analysis"
 
@@ -590,15 +589,63 @@ interval = collect(-0.5:0.1:0.5).*pi/180
 # ╔═╡ 370a2da6-6de0-44c0-9f70-4e676769f59b
 state_0_anim = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval),u=2)
 
-# ╔═╡ baf7de1f-b603-49df-98f9-6ce5b7e99e77
+# ╔═╡ 06f064cf-fc0d-4f65-bd6b-ddb6e4154f6c
 begin
-	#plot(xlabel = "ϵ", ylabel = "Fraction of survived time")
-	#plot!(ϵs,survival_pcts, label = false, grid = true)
-	#savefig("epsilon_greedy/survival_v_epsilon_2.pdf")
+	max_time = 100000
+	num_episodes = 100
+	ϵs = [0.0,0.001,0.01,0.05] 
+	#To compute the survival times for various epsilon-greedy Q agents, it takes a long time
+	# survival_pcts = zeros(length(ϵs),num_episodes)
+	# Threads.@threads for i in 1:length(ϵs)
+	# 	for j in 1:num_episodes
+	# 		state0 = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
+	# 		xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q = create_episode_q(state0, q_value_int, max_time, ip_q, interpolation, ϵs[i])
+	# 		#survival_timesq[j] = length(xposcar_q)
+	# 		#if length(xposcar_q) == max_time
+	# 			survival_pcts[i,j] = length(xposcar_q)
+	# 		#end
+	# 	end
+	# end
+
+	#Computes it for H agent
+	# survival_times = zeros(num_episodes)
+	# Threads.@threads for i in 1:num_episodes
+	# 	state0_b = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
+	# 	xs_b, ys_b, xposcar_b, thetas_ep_b, ws_ep_b, us_ep_b, vs_ep_b, actions_b = create_episode_b(state0_b,h_value_int,max_time, ip_b)
+	# 	survival_times[i] = length(xposcar_b)
+	# end
+
+	#Otherwise, read from file
+	survival_Q = readdlm("survival_pcts_epsilon.dat")
+	survival_H = readdlm("survival_pcts_H_agent.dat")
+end;
+
+# ╔═╡ e169a987-849f-4cc2-96bc-39f234742d93
+begin
+	density = false
+	bd = 4000
+	surv_hists = plot(xlabel = "Survived time steps", xticks = [10000,50000,100000])
+	if density == true
+		plot!(surv_hists,ylabel = "Density")
+		density!(surv_hists, bandwidth = bd, survival_H,label = "H agent",linewidth = 2)
+	else
+		plot!(surv_hists,ylabel = "Normalized frequency")
+		plot!(surv_hists,bins = collect(-bd/2:bd:max_time+bd/2),survival_H,st = :stephist, label = "H agent", alpha = 1.0,linewidth = 2,normalized = :probability)
+	end
+	alphas = [1.0,1.0,1.0,1.0]
+	for i in 1:length(ϵs)
+		if density == true
+			density!(surv_hists, bandwidth = bd, survival_Q[i,:],label = "ϵ = $(ϵs[i])",linewidth = 2)
+		else
+			plot!(surv_hists,bins = (collect(-bd/2:bd:max_time+bd/2)),survival_Q[i,:],st = :stephist,normalized = :probability,label = "ϵ = $(ϵs[i])",alpha = alphas[i],linewidth = 2)
+		end
+	end
+	plot(surv_hists, legend_position = :topleft, margin = 5Plots.mm)
+	#savefig("epsilon_greedy/q_h_survival_histograms_n.pdf")
 end
 
-# ╔═╡ 90aff8bb-ed69-40d3-a22f-112f713f4b93
-md"# Comparison between H and Q agents"
+# ╔═╡ a4b26f44-319d-4b90-8fee-a3ab2418dc47
+md"## State occupancy histograms"
 
 # ╔═╡ 379318a2-ea2a-4ac1-9046-0fdfe8c102d4
 interpolation = true
@@ -699,27 +746,6 @@ begin
 	length(xposcar_h_anim)
 end
 
-# ╔═╡ fe9f44ea-983e-4b8e-8dc9-4ede4aa493d4
-begin
-	n_episodes = 100
-	survival_times = zeros(n_episodes)
-	maxt = 100000
-	for i in 1:n_episodes
-		state0_b = State(θ = 0.0, u = 2)
-		xs_b, ys_b, xposcar_b, thetas_ep_b, ws_ep_b, us_ep_b, vs_ep_b, actions_b = create_episode_b(state0_b,h_value_int,maxt, ip_b)
-		survival_times[i] = length(xposcar_b)
-	end
-end
-
-# ╔═╡ 8db9b1e4-7af5-406d-b7c5-d36d997a4947
-begin
-	plot(survival_times.*ip_b.Δt,bins = collect(1:maxt*ip_b.Δt+1), st = :histogram, xlabel = "length of episode (s)", label = false, normalize = false)
-#savefig("value_interpolation/survival_times_h_agent_g_$(ip_b.γ)_nstates_$(ip_b.nstates)_tol_$(tolb).pdf")
-end
-
-# ╔═╡ 5e662607-d47d-4b4a-aa55-d72b7f553636
-length(findall(i -> survival_times[i] == maxt, 1:100))/n_episodes
-
 # ╔═╡ 7edf8ddf-2b6e-4a4b-8181-6b8bbdd22841
 begin
 	max_t_q_anim = 1000
@@ -728,66 +754,6 @@ begin
 	xs_q_anim, ys_q_anim, xposcar_q_anim, thetas_ep_q_anim, ws_ep_q_anim, us_ep_q_anim, vs_ep_q_anim, actions_q_anim, values_q_anim, entropies_q_anim,rewards_q_anim = create_episode_q(state_0_anim,q_value_int,max_t_q_anim, ip_q, interpolation,ϵ_anim)
 	length(xposcar_q_anim)
 end
-
-# ╔═╡ bfc6edb4-9689-4de7-bbeb-32dafd1d7058
-plot(actions_q_anim)
-
-# ╔═╡ 06f064cf-fc0d-4f65-bd6b-ddb6e4154f6c
-begin
-	ϵs = [0.0,0.001,0.01,0.05] #collect(0.01:0.1:0.3)
-	max_time = 100000
-	num_episodes = 100
-	#Interval from which to draw initial condition
-	survival_pcts = zeros(length(ϵs),num_episodes)
-	Threads.@threads for i in 1:length(ϵs)
-		for j in 1:num_episodes
-			state0 = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
-			xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q = create_episode_q(state0, q_value_int, max_time, ip_q, interpolation, ϵs[i])
-			#survival_timesq[j] = length(xposcar_q)
-			#if length(xposcar_q) == max_time
-				survival_pcts[i,j] = length(xposcar_q)
-			#end
-		end
-	end
-end
-
-# ╔═╡ dd76dc3d-a91f-428a-8a48-e61971789105
-survival_pcts
-
-# ╔═╡ e169a987-849f-4cc2-96bc-39f234742d93
-begin
-	surv_hists = plot(xlabel = "time steps")
-	alphas = [1.0,1.0,1.0,1.0]
-	for i in 1:length(ϵs)
-		plot!(surv_hists,bins = (collect(1:5000:max_time+1)),survival_pcts[i,:],st = :stephist,label = "ϵ = $(ϵs[i])",alpha = alphas[i],linewidth = 2)
-	end
-	plot!(surv_hists,bins = collect(1:5000:max_time+1),survival_times,st = :stephist, label = "H agent", alpha = 1.0,linewidth = 2)
-	xaxis!(surv_hists)
-	plot(surv_hists, legend_position = :topleft, margin = 5Plots.mm)
-	#savefig("epsilon_greedy/epsilon_survival_histograms_41.pdf")
-end
-
-# ╔═╡ 4988f4c1-42dc-4454-8414-ca933279e8c4
-begin
-	maxtq = 3000
-	n_episodesq = 100
-	survival_timesq = zeros(n_episodesq)
-	ϵ_hist = 0.00
-	for i in 1:n_episodesq
-		state0_q = State(θ = 0.01, u = 2)
-		xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q = create_episode_q(state0_q,q_value_int,maxtq, ip_q, interpolation, ϵ_hist)
-		survival_timesq[i] = length(xposcar_q)
-	end
-end
-
-# ╔═╡ b5b76346-626e-4a87-b863-8d32f7d59283
-begin
-	plot(survival_timesq.*ip_q.Δt,bins = collect(1:maxtq*ip_q.Δt+1), st = :histogram, xlabel = "length of episode (s)", label = false, normalize = false)
-#savefig("value_interpolation/survival_times_q_g_$(ip_q.γ)_$(ip_q.nstates)_tol_$(tol).pdf")
-end
-
-# ╔═╡ 7e58b19b-2e4d-4eaa-b661-348ef98d79db
-length(findall(i -> survival_timesq[i] == maxtq, 1:100))
 
 # ╔═╡ 94da3cc0-6763-40b9-8773-f2a1a2cbe507
 state_0_comp = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval),u=2)
@@ -798,6 +764,7 @@ begin
 	θ_0 = 0.5*pi/180
 	state0_b = state_0_comp #State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
 	xs_b, ys_b, xposcar_b, thetas_ep_b, ws_ep_b, us_ep_b, vs_ep_b, actions_b, values_b, entropies_b = create_episode_b(state0_b,h_value_int,max_t_b, ip_b)
+	#Check if it survived the whole episode
 	length(xposcar_b)
 end
 
@@ -805,8 +772,9 @@ end
 begin
 	max_t_q = 50000
 	state0_q = state_0_comp #State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
-	ϵ = 0.05
+	ϵ = 0.01
 	xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q, values_q, entropies_q,rewards_q = create_episode_q(state0_q,q_value_int,max_t_q, ip_q, interpolation,ϵ)
+	#Check if it survived the whole episode
 	length(xposcar_q)
 end
 
@@ -821,12 +789,6 @@ begin
 	 push!(x_q,xposcar_q[i][1])
 	end
 end
-
-# ╔═╡ 6cb1ed60-4770-47d9-a146-3bedd249ab9f
-x_q
-
-# ╔═╡ 9b416eb2-1859-4dbe-90a6-01b1e2be2122
-round(0.44,sigdigits = 1)
 
 # ╔═╡ d0c487cb-041f-4c8d-9054-e5f3cfad1ed4
 begin
@@ -860,23 +822,20 @@ md"## Action histogram"
 begin
 	plot(actions_b, bins = [ip_b.a_s[1]-1,ip_b.a_s[1]+1,ip_b.a_s[2]-1,ip_b.a_s[2]+1,ip_b.a_s[3]-1,ip_b.a_s[3]+1,ip_b.a_s[4]-1,ip_b.a_s[4]+1,ip_b.a_s[5]-1,ip_b.a_s[5]+1], st = :stephist, label = "h agent")
 	plot!(actions_q, bins = [ip_b.a_s[1]-1,ip_b.a_s[1]+1,ip_b.a_s[2]-1,ip_b.a_s[2]+1,ip_b.a_s[3]-1,ip_b.a_s[3]+1,ip_b.a_s[4]-1,ip_b.a_s[4]+1,ip_b.a_s[5]-1,ip_b.a_s[5]+1], st = :stephist, label = "q agent")
-#savefig("value_interpolation/actions_smallreward_agents_nstates_$(ip_q.nstates)_ep$(Int(max_t_q*ip_q.Δt)).pdf")
+#savefig("actions_smallreward_agents_nstates_$(ip_q.nstates)_ep$(Int(max_t_q*ip_q.Δt)).pdf")
 end
 
 # ╔═╡ Cell order:
 # ╠═63a9f3aa-31a8-11ec-3238-4f818ccf6b6c
-# ╠═8ff6f82e-aec2-4acf-8489-615664491049
-# ╠═1c559ca0-1e76-49b7-9105-0bf5ee9047cf
-# ╠═25a10797-3d8c-46ec-a04c-21e058568d1c
 # ╠═11f37e01-7958-4e79-a8bb-06b92d7cb9ed
 # ╠═4889e96d-deaf-432e-b055-d9e3ef8ca29c
 # ╟─40ee8d98-cc45-401e-bd9d-f9002bc4beba
 # ╠═4ec0dd6d-9d3d-4d30-8a19-bc91600d9ec2
 # ╟─f997fa16-69e9-4df8-bed9-7067e1a5537d
 # ╟─2f31b286-11aa-443e-a3dc-c021e6fc276c
-# ╠═4263babb-32ae-446f-b6a6-9d5451ed40cd
+# ╟─4263babb-32ae-446f-b6a6-9d5451ed40cd
 # ╟─b1d3fff1-d980-4cc8-99c3-d3db7a71bf60
-# ╠═24a4ba06-d3ae-4c4b-9ab3-3852273c2fd4
+# ╟─24a4ba06-d3ae-4c4b-9ab3-3852273c2fd4
 # ╟─9396a0d1-6036-44ec-98b7-16df4d150b54
 # ╟─cfdf3a8e-a377-43ef-8a76-63cf78ce6a16
 # ╟─ffe32878-8732-46d5-b57c-9e9bb8e6dd74
@@ -901,10 +860,6 @@ end
 # ╠═9230de54-3ee3-4242-bc34-25a38edfbb6b
 # ╠═14314bcc-661a-4e84-886d-20c89c07a28e
 # ╠═c087392c-c411-4368-afcc-f9a104856884
-# ╟─1f425cac-540d-475e-b70d-0eb3af9c833b
-# ╠═fe9f44ea-983e-4b8e-8dc9-4ede4aa493d4
-# ╠═8db9b1e4-7af5-406d-b7c5-d36d997a4947
-# ╠═5e662607-d47d-4b4a-aa55-d72b7f553636
 # ╟─6107a0ce-6f01-4d0b-bd43-78f2125ac185
 # ╟─e181540d-4334-47c4-b35d-99023c89a2c8
 # ╟─31a1cdc7-2491-42c1-9988-63650dfaa3e3
@@ -921,24 +876,17 @@ end
 # ╠═7edf8ddf-2b6e-4a4b-8181-6b8bbdd22841
 # ╠═c98025f8-f942-498b-9368-5d524b141c62
 # ╠═d8642b83-e824-429e-ac3e-70e875a47d1a
-# ╠═bfc6edb4-9689-4de7-bbeb-32dafd1d7058
+# ╟─90aff8bb-ed69-40d3-a22f-112f713f4b93
 # ╟─4fad0692-05dc-4c3b-9aae-cd9a43519e51
 # ╠═c5c9bc66-f554-4fa8-a9f3-896875a50627
 # ╠═06f064cf-fc0d-4f65-bd6b-ddb6e4154f6c
-# ╠═dd76dc3d-a91f-428a-8a48-e61971789105
 # ╠═e169a987-849f-4cc2-96bc-39f234742d93
-# ╠═baf7de1f-b603-49df-98f9-6ce5b7e99e77
-# ╠═4988f4c1-42dc-4454-8414-ca933279e8c4
-# ╠═b5b76346-626e-4a87-b863-8d32f7d59283
-# ╠═7e58b19b-2e4d-4eaa-b661-348ef98d79db
-# ╟─90aff8bb-ed69-40d3-a22f-112f713f4b93
+# ╟─a4b26f44-319d-4b90-8fee-a3ab2418dc47
 # ╠═379318a2-ea2a-4ac1-9046-0fdfe8c102d4
 # ╠═94da3cc0-6763-40b9-8773-f2a1a2cbe507
 # ╠═7a27d480-a9cb-4c26-91cd-bf519e8b35fa
 # ╠═b367ccc6-934f-4b18-b1db-05286111958f
-# ╠═6cb1ed60-4770-47d9-a146-3bedd249ab9f
 # ╠═096a58e3-f417-446e-83f0-84a333880680
-# ╠═9b416eb2-1859-4dbe-90a6-01b1e2be2122
 # ╠═d0c487cb-041f-4c8d-9054-e5f3cfad1ed4
 # ╟─c283afa6-b3cf-4161-b949-732aa2464eb7
 # ╠═c982e800-6089-4860-a190-47f66f802d6d
