@@ -4,13 +4,26 @@
 using Markdown
 using InteractiveUtils
 
+# This Pluto notebook uses @bind for interactivity. When running this notebook outside of Pluto, the following 'mock version' of @bind gives bound variables a default value (instead of an error).
+macro bind(def, element)
+    quote
+        local iv = try Base.loaded_modules[Base.PkgId(Base.UUID("6e696c72-6542-2067-7265-42206c756150"), "AbstractPlutoDingetjes")].Bonds.initial_value catch; b -> missing; end
+        local el = $(esc(element))
+        global $(esc(def)) = Core.applicable(Base.get, el) ? Base.get(el) : iv(el)
+        el
+    end
+end
+
 # ╔═╡ 63a9f3aa-31a8-11ec-3238-4f818ccf6b6c
 begin
 	using Pkg
-	Pkg.activate("Project.toml")
+	Pkg.activate("../Project.toml")
 	using Plots, Distributions, PlutoUI, Parameters
 	using Interpolations, StatsPlots, DelimitedFiles, ZipFile
 end
+
+# ╔═╡ 18382e9c-e812-49ff-84cc-faad709bc4c3
+using LinearAlgebra
 
 # ╔═╡ 11f37e01-7958-4e79-a8bb-06b92d7cb9ed
 begin
@@ -18,7 +31,7 @@ begin
 end
 
 # ╔═╡ 4889e96d-deaf-432e-b055-d9e3ef8ca29c
-default(titlefont = ("Computer Modern",14), legendfont = ("Computer Modern",12), guidefont = ("Computer Modern", 16), tickfont = ("Computer Modern", 14))
+default(titlefont = ("Computer Modern",14), legend_font_family = "Computer Modern", legend_font_pointsize = 14, guidefont = ("Computer Modern", 16), tickfont = ("Computer Modern", 14))
 
 # ╔═╡ 40ee8d98-cc45-401e-bd9d-f9002bc4beba
 md"# Useful functions"
@@ -336,6 +349,42 @@ end
 # ╔═╡ bbe19356-e00b-4d90-b704-db33e0b75743
 ip_b = inverted_pendulum_borders(M = 1, m = 0.1,l = 1.,Δt = 0.02, sizeθ = 41, sizew = 41,sizev = 41, sizex = 41, max_θ = 0.62, max_w = 3, a_s = [-50,-10,0,10,50], max_x = 2.4, max_v = 3, nactions = 5, γ = 0.96)
 
+# ╔═╡ b38cdb2b-f570-41f4-8996-c7e41551f374
+function draw_cartpole(xposcar,xs,ys,t,xlimit,ip::inverted_pendulum_borders)
+	hdim = 500
+	vdim = 200
+	size = 2
+	verts = [(-size,-size/2),(size,-size/2),(size,size/2),(-size,size/2)]
+	#Draw car
+	pcar = plot(xticks = false, yticks = false,xlim = (-xlimit-0.3,xlimit+0.3),ylim = (-0.1, ip.l + 0.05), grid = false, axis = false,legend = false)
+	#Plot arena
+	plot!(pcar, [-xlimit-0.2,xlimit+0.2], [-0.1,-0.1], color = :black)
+	plot!(pcar, [-xlimit-0.3,-xlimit-0.2], [0.2*ip.l,0.2*ip.l], color = :black)
+	plot!(pcar, [xlimit+0.2,xlimit+0.3], [0.2*ip.l,0.2*ip.l], color = :black)
+	plot!(pcar, [-xlimit-0.2,-xlimit-0.2], [-0.1,0.2*ip.l], color = :black)
+	plot!(pcar, [xlimit+0.2,xlimit+0.2], [-0.1,0.2*ip.l], color = :black)
+	#Draw pole
+	plot!(pcar,xs[t],ys[t],marker = (:none, 1),linewidth = 2.5, linecolor = :black)
+	#Draw cart
+	plot!(pcar,xposcar[t],[0],marker = (Shape(verts),30))
+	#draw_actions
+	actions,_ = adm_actions_b(State(u = 2),ip)
+	arrow_x = zeros(length(actions))
+	arrow_y = zeros(length(actions))
+	aux = actions
+	for i in 1:length(aux)
+		mult = 0.03
+		arrow_x[i] = aux[i]*mult
+		arrow_y[i] = 0#aux[i][2]*mult*1.3
+	end
+	quiver!(pcar,ones(Int64,length(aux))*xposcar[t][1],ones(Int64,length(aux))*0,quiver = (arrow_x,arrow_y),color = "black",linewidth = 3)
+	scatter!(pcar,xposcar[t],[0],markersize = 10,color = "black")
+	plot(pcar, size = (hdim,vdim),margin=6Plots.mm)
+end
+
+# ╔═╡ d0fbf396-a1b6-4002-a971-3f7862955c8c
+adm_actions_b(State(u = 2),ip_b)
+
 # ╔═╡ e099528b-37a4-41a2-836b-69cb3ceda2f5
 md" ## Value iteration"
 
@@ -620,9 +669,11 @@ begin
 	survival_H = readdlm("survival_pcts_H_agent.dat")
 end;
 
+# ╔═╡ 1a6c956e-38cc-4217-aff3-f303af0282a4
+md"Density plot? $(@bind density CheckBox(default = false))"
+
 # ╔═╡ e169a987-849f-4cc2-96bc-39f234742d93
 begin
-	density = false
 	bd = 4000
 	surv_hists = plot(xlabel = "Survived time steps", xticks = [10000,50000,100000])
 	if density == true
@@ -746,6 +797,18 @@ begin
 	length(xposcar_h_anim)
 end
 
+# ╔═╡ dafbc66b-cbc2-41c9-9a42-da5961d2eaa6
+@bind t Slider(1:max_t_h_anim)
+
+# ╔═╡ f86d1b59-2bdc-4e1f-be17-0a1ab282d910
+xposcar_h_anim
+
+# ╔═╡ 2735cbf5-790d-40b4-ac32-a413bc1d530a
+begin
+	draw_cartpole(xposcar_h_anim,xs_h_anim,ys_h_anim,t,ip_b.max_x,ip_b)
+	#savefig("cartpole_draw.pdf")
+end
+
 # ╔═╡ 7edf8ddf-2b6e-4a4b-8181-6b8bbdd22841
 begin
 	max_t_q_anim = 1000
@@ -762,7 +825,7 @@ state_0_comp = State(θ = rand(interval),x = rand(interval), v = rand(interval),
 begin
 	max_t_b = 50000
 	θ_0 = 0.5*pi/180
-	state0_b = state_0_comp #State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
+	state0_b = state_0_comp
 	xs_b, ys_b, xposcar_b, thetas_ep_b, ws_ep_b, us_ep_b, vs_ep_b, actions_b, values_b, entropies_b = create_episode_b(state0_b,h_value_int,max_t_b, ip_b)
 	#Check if it survived the whole episode
 	length(xposcar_b)
@@ -771,7 +834,7 @@ end
 # ╔═╡ b367ccc6-934f-4b18-b1db-05286111958f
 begin
 	max_t_q = 50000
-	state0_q = state_0_comp #State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
+	state0_q = state_0_comp
 	ϵ = 0.01
 	xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q, values_q, entropies_q,rewards_q = create_episode_q(state0_q,q_value_int,max_t_q, ip_q, interpolation,ϵ)
 	#Check if it survived the whole episode
@@ -792,27 +855,28 @@ end
 
 # ╔═╡ d0c487cb-041f-4c8d-9054-e5f3cfad1ed4
 begin
-	title = plot(title = "Initial state: θ = $(round(state_0_comp.θ*180/pi,sigdigits=2)) deg, ω = $(round(state_0_comp.w*180/pi,sigdigits=2)) deg/s, x = $(round(state_0_comp.x,sigdigits=2)) m,  v = $(round(state_0_comp.v,sigdigits=2)) m/s", grid = false, axis = false, ticks = false, bottom_margin = -20Plots.px)
+	#title = plot(title = "Initial state: θ = $(round(state_0_comp.θ*180/pi,sigdigits=2)) deg, ω = $(round(state_0_comp.w*180/pi,sigdigits=2)) deg/s, x = $(round(state_0_comp.x,sigdigits=2)) m,  v = $(round(state_0_comp.v,sigdigits=2)) m/s", grid = false, axis = false, ticks = false, bottom_margin = -20Plots.px)
 	p1 = plot(xlim=(-36,36), xlabel = "Angle (deg)")
-	StatsPlots.density!(p1,thetas_ep_b.*180/pi,label = false)
-	StatsPlots.density!(p1,thetas_ep_q.*180/pi,label = false)
-	plot!(p1,ylabel = "Density",margin=4Plots.mm)
+	StatsPlots.density!(p1,thetas_ep_b.*180/pi,label = false,lw = 2)
+	StatsPlots.density!(p1,thetas_ep_q.*180/pi,label = false,lw = 2)
+	plot!(p1,ylabel = "Density")
 	p2 = plot(xlim=(-3.5*180/pi,3.5*180/pi), xlabel = "Angular speed (deg/s)")
-	StatsPlots.density!(p2,ws_ep_b.*180/pi,label = "h agent")
-	StatsPlots.density!(p2,ws_ep_q.*180/pi,label = "q agent, \nϵ = $(ϵ)")
-	plot!(p2,margin=4Plots.mm, legend_foreground_color = nothing)
+	StatsPlots.density!(p2,ws_ep_b.*180/pi,label = "h agent",lw = 2)
+	StatsPlots.density!(p2,ws_ep_q.*180/pi,label = "q agent, \nϵ = $(ϵ)",lw = 2)
+	plot!(p2, legend_foreground_color = nothing,legend_position = :topright)
 	p3 = plot(xlim=(-2.,2.))
 	#plot!(p3,bins = collect(-2.05:0.1:2.05),x_b,st = :stephist)
 	#plot!(p3,bins = collect(-2.05:0.1:2.05),x_q,st = :stephist)
-	StatsPlots.density!(p3,x_b, label = false, xlabel = "Position")
-	StatsPlots.density!(p3,x_q,label = false)
-	plot!(p3,ylabel = "Density",margin=4Plots.mm)
+	StatsPlots.density!(p3,x_b, label = false, xlabel = "Position",lw = 2)
+	StatsPlots.density!(p3,x_q,label = false,lw = 2)
+	plot!(p3,ylabel = "Density")
 	p4 = plot(xlim=(-4,4))
-	StatsPlots.density!(p4,vs_ep_b, bandwidth = 0.1,label = false, xlabel = "Linear speed")
-	StatsPlots.density!(p4,vs_ep_q, bandwidth = 0.1,label = false)
-	plot!(p4,margin=4Plots.mm)
-	plot(title,p1,p2,p3,p4, size = (900,500), layout = @layout([A{0.01h}; [B C]; [D E]]))
-	#savefig("epsilon_greedy/histograms_epsilon_$(ϵ).pdf")
+	StatsPlots.density!(p4,vs_ep_b, bandwidth = 0.1,label = false, xlabel = "Linear speed",lw = 2)
+	StatsPlots.density!(p4,vs_ep_q, bandwidth = 0.1,label = false,lw = 2)
+	plot!(p4)
+	#plot(title,p1,p2,p3,p4, size = (900,500), layout = @layout([A{0.01h}; [B C]; [D E]]))
+	plot(p1,p2,p3,p4, size = (900,600), margin = 4Plots.mm)
+	#savefig("histograms_epsilon_$(ϵ).pdf")
 end
 
 # ╔═╡ c283afa6-b3cf-4161-b949-732aa2464eb7
@@ -829,6 +893,7 @@ end
 # ╠═63a9f3aa-31a8-11ec-3238-4f818ccf6b6c
 # ╠═11f37e01-7958-4e79-a8bb-06b92d7cb9ed
 # ╠═4889e96d-deaf-432e-b055-d9e3ef8ca29c
+# ╠═18382e9c-e812-49ff-84cc-faad709bc4c3
 # ╟─40ee8d98-cc45-401e-bd9d-f9002bc4beba
 # ╠═4ec0dd6d-9d3d-4d30-8a19-bc91600d9ec2
 # ╟─f997fa16-69e9-4df8-bed9-7067e1a5537d
@@ -849,6 +914,11 @@ end
 # ╟─b975eaf8-6a94-4e39-983f-b0fb58dd70a1
 # ╟─e0fdce26-41b9-448a-a86a-6b29b68a6782
 # ╠═bbe19356-e00b-4d90-b704-db33e0b75743
+# ╠═b38cdb2b-f570-41f4-8996-c7e41551f374
+# ╠═d0fbf396-a1b6-4002-a971-3f7862955c8c
+# ╠═dafbc66b-cbc2-41c9-9a42-da5961d2eaa6
+# ╠═f86d1b59-2bdc-4e1f-be17-0a1ab282d910
+# ╠═2735cbf5-790d-40b4-ac32-a413bc1d530a
 # ╟─e099528b-37a4-41a2-836b-69cb3ceda2f5
 # ╠═6b9b1c38-0ed2-4fe3-9326-4670a33e7765
 # ╠═7c04e2c3-4157-446d-a065-4bfe7d1931fd
@@ -880,7 +950,8 @@ end
 # ╟─4fad0692-05dc-4c3b-9aae-cd9a43519e51
 # ╠═c5c9bc66-f554-4fa8-a9f3-896875a50627
 # ╠═06f064cf-fc0d-4f65-bd6b-ddb6e4154f6c
-# ╠═e169a987-849f-4cc2-96bc-39f234742d93
+# ╟─1a6c956e-38cc-4217-aff3-f303af0282a4
+# ╟─e169a987-849f-4cc2-96bc-39f234742d93
 # ╟─a4b26f44-319d-4b90-8fee-a3ab2418dc47
 # ╠═379318a2-ea2a-4ac1-9046-0fdfe8c102d4
 # ╠═94da3cc0-6763-40b9-8773-f2a1a2cbe507
@@ -889,4 +960,4 @@ end
 # ╠═096a58e3-f417-446e-83f0-84a333880680
 # ╠═d0c487cb-041f-4c8d-9054-e5f3cfad1ed4
 # ╟─c283afa6-b3cf-4161-b949-732aa2464eb7
-# ╠═c982e800-6089-4860-a190-47f66f802d6d
+# ╟─c982e800-6089-4860-a190-47f66f802d6d
