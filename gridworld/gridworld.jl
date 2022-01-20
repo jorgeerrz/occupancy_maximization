@@ -38,17 +38,17 @@ end
 
 # ╔═╡ b4e7b585-261c-4044-87cc-cbf669768145
 #Time steps for animations
-max_t_anim = 200
+max_t_anim = 100
 
 # ╔═╡ 7feeec1a-7d7b-4220-917d-049f1e9b101b
 md"# Grid world environment"
 
 # ╔═╡ 7e68e560-45d8-4429-8bff-3a8229c8c84e
 @with_kw struct environment
-	γ::Float64 = 0.96
-	sizex::Int64 = 5
-	sizey::Int64 = 5
-	sizeu::Int64 = 10
+	γ::Float64 = 0.99
+	sizex::Int64 = 11
+	sizey::Int64 = 11
+	sizeu::Int64 = 100
 	xborders::Vector{Int64} = [0,sizex+1]
 	yborders::Vector{Int64} = [0,sizey+1]
 	#Location of obstacles
@@ -176,20 +176,27 @@ end
 # ╔═╡ d0a5c0fe-895f-42d8-9db6-3b0fcc6bb43e
 md" # Environment"
 
+# ╔═╡ 155056b5-21ea-40d7-8cce-19fde5a1b150
+begin
+	tol = 1E-3
+	n_iter = 2000
+end
+
 # ╔═╡ 6c716ad4-23c4-46f8-ba77-340029fcce87
-function initialize_env(γ, size_x,size_y,capacity,which,obstacles,reward_locations,reward_mags) #
-	if which == "wall"
-		wall_x_location = [2]
-	else
-		wall_x_location = [size_x + 2]
+function initialize_fourrooms(size_x,size_y,capacity,reward_locations,reward_mags) #
+	#Four big rooms
+	wall_x = Int(size_x+1)/2
+	wall_y = Int(size_y+1)/2
+	obstacles = Any[]
+	for i in 1:size_x
+		if i != Int((size_x+1)/4) && i != Int(3*(size_x+1)/4)
+			println("i = ", i)
+			push!(obstacles, [i,wall_y])
+		end
 	end
-	if which == "wall"
-		for idx in 1:length(wall_x_location)
-			for y in 1:size_y
-				if y != 1 #Int(floor((sizey+1)/2))
-					push!(obstacles,[wall_x_location[idx],y])
-				end
-			end
+	for j in 1:size_y
+		if j != Int((size_y+1)/4) && j != Int(3*(size_y+1)/4)
+			push!(obstacles, [wall_x,j])
 		end
 	end
 	obstaclesx = Any[]
@@ -198,8 +205,7 @@ function initialize_env(γ, size_x,size_y,capacity,which,obstacles,reward_locati
 		push!(obstaclesx,obstacles[i][1])
 		push!(obstaclesy,obstacles[i][2])
 	end
-environment(γ = γ, sizex =
- size_x,sizey = size_y,sizeu = capacity,obstacles = obstacles,obstaclesx = obstaclesx,obstaclesy = obstaclesy,reward_locations = reward_locations,reward_mags = reward_mags)
+environment(sizex = size_x, sizey = size_y, sizeu = capacity,obstacles = obstacles,obstaclesx = obstaclesx,obstaclesy = obstaclesy,reward_locations = reward_locations,reward_mags = reward_mags)
 end
 
 # ╔═╡ 07abd5b7-b465-425b-9823-19b73d07db56
@@ -207,34 +213,30 @@ end
 
 # ╔═╡ 8f2fdc23-1b82-4479-afe7-8eaf3304a122
 begin
-	γ = 0.96
-	tol = 1E-3
-	n_iter = 2000
-	size_x = 10
-	size_y = 10
-	capacity = 50
-	reward_locations = [[1,1],[size_x,size_y]]
-	reward_mags = [5,50]
-	obstacles = [[1,4],[2,4],[3,4],[4,3],[4,2],[4,1]]
+	size_x = 11
+	size_y = 11
+	capacity = 100
+	reward_locations = [[1,1],[size_x,size_y],[size_x,1],[1,size_y]]
+	reward_mags = [3,3,3,3]
+	env1 = initialize_fourrooms(size_x,size_y,capacity,reward_locations,reward_mags)
+	#one small room
+	#obstacles = [[1,4],[2,4],[3,4],[4,3],[4,2],[4,1]]
 	#Rewards for the walled environment
 	#reward_locations = [[1,6],[3,2],[4,2],[5,2],[6,2]]
 	#reward_mags = [30,-40,-30,-20,-10]
 end
 
-# ╔═╡ fa33c170-e46e-444b-92de-cd80327a7b0a
-env1 = initialize_env(γ,size_x,size_y,capacity,which,obstacles,reward_locations,reward_mags);
-
-# ╔═╡ 5e6964a3-7169-4c0d-b6d3-3f11d3cc7d36
-env2 = initialize_env(γ,size_x,size_y,200,which,obstacles,reward_locations,reward_mags)
+# ╔═╡ 194ffe45-b7a3-4dd4-a346-9a2334979526
+env1.obstacles
 
 # ╔═╡ 403a06a7-e30f-4aa4-ade1-55dee37cd514
 function draw_environment(x_pos,y_pos,u,env::environment)
-	reward_sizes = [10,20]
+	reward_sizes = env.reward_mags
 	#Draw obstacles
 	ptest = scatter(env.obstaclesx,env.obstaclesy,markershape = :square, markersize = 20, color = "black")
 	#Draw food
 	for i in 1:length(reward_mags)
-		scatter!(ptest,[env.reward_locations[i][1]],[env.reward_locations[i][2]],markersize = reward_sizes[i],color = "green",markershape = :diamond)
+		scatter!(ptest,[env.reward_locations[i][1]],[env.reward_locations[i][2]],markersize = reward_sizes[i]*3,color = "green",markershape = :diamond)
 	end
 	#Draw agent
 	plot!(ptest, gridalpha = 0.8,  xticks = collect(0.5:env.sizex+0.5), yticks = collect(0.5:env.sizey+0.5), tickfontcolor = :white, grid = true, ylim=(0.5,env.sizey +0.5), xlim=(0.5,env.sizex +0.5))
@@ -252,12 +254,13 @@ function draw_environment(x_pos,y_pos,u,env::environment)
 		arrow_y[i] = aux[i][2]*mult*1.3
 	end
 	quiver!(ptest,ones(Int64,length(aux))*x_pos[1],ones(Int64,length(aux))*y_pos[1],quiver = (arrow_x,arrow_y),color = "black",linewidth = 3)
-	
-	#Draw internal states
+	#Draw agent
 	ptest2 = plot(xticks = false,ylim = (0,env.sizeu), grid = false,legend = false)
-	scatter!(ptest, x_pos,y_pos, markersize = 20, leg = false, color = "red")
-	bar!(ptest2, u, color = "green")
-	plot(ptest,ptest2,layout = Plots.grid(1, 2, widths=[0.8,0.2]), title=["" "u(t)"], size = (700,500))
+	scatter!(ptest, x_pos,y_pos, markersize = 15, leg = false, color = "red")
+	plot(ptest, size = (500,500))
+	#Draw internal states
+	#bar!(ptest2, u, color = "green")
+	#plot(ptest,ptest2,layout = Plots.grid(1, 2, widths=[0.8,0.2]), title=["" "u(t)"], size = (700,500))
 end
 
 # ╔═╡ ac3a4aa3-1edf-467e-9a47-9f6d6655cd04
@@ -334,9 +337,14 @@ md"## Optimal value function"
 
 # ╔═╡ 82fbe5a0-34a5-44c7-bdcb-36d16f09ea7b
 begin
-	h_value,t_stop = h_iteration(env1,tol,n_iter,true)
-	writedlm("h_value_u_$(env1.sizeu).dat",h_value)
+	#To compute
+	#h_value,t_stop = h_iteration(env1,tol,n_iter,true)
+	#Read out values
+	h_value = reshape(readdlm("values/h_value_gain_$(env1.reward_mags[1]).dat"),env1.sizex,env1.sizey,env1.sizeu)
 end;
+
+# ╔═╡ a11b198f-0a55-4529-b44c-270f37ef773a
+#writedlm("h_value_u_$(env1.sizeu).dat",h_value)
 
 # ╔═╡ e67db730-ca7c-4ef4-a2d2-7e001d5f7a79
 u = 20
@@ -384,6 +392,17 @@ end
 # ╔═╡ aa5e5bf6-6504-4c01-bb36-df0d7306f9de
 md"## Sample trajectory"
 
+# ╔═╡ 10bf144f-760d-4a25-893b-c70f2bff1efd
+a = [1,2,3,4,5,6,7]
+
+# ╔═╡ 1b98932a-830e-4738-a75c-22ec3d83cd96
+id = findfirst(i -> i == 4,a)
+
+# ╔═╡ 8f42159d-60af-49ea-89f7-f7bf4e3f7e38
+if id != nothing
+	deleteat!(a,id)
+end
+
 # ╔═╡ ef9e78e2-d61f-4940-9e62-40c6d060353b
 function sample_trajectory(s_0,u_0,opt_value,max_t,env::environment)
 	xpositions = Any[]
@@ -394,9 +413,25 @@ function sample_trajectory(s_0,u_0,opt_value,max_t,env::environment)
 	urgency = Any[]
 	push!(xpositions,[s_0[1]])
 	push!(ypositions,[s_0[2]])
+	push!(all_x,s_0[1])
+	push!(all_y,s_0[2])
 	push!(u_states,u_0)
-	s = s_0
-	u = u_0
+	unvisited_s_states = Any[]
+	unvisited_u_states = collect(1:env.sizeu)
+	n_arena_states = env.sizex*env.sizey - length(env.obstacles)
+	for x in 1:env.sizex
+		for y in 1:env.sizey
+			if ([x,y] in env.obstacles) == false
+				push!(unvisited_s_states,[x,y])
+			end
+		end
+	end
+	s = deepcopy(s_0)
+	u = deepcopy(u_0)
+	id_s = findfirst(i -> i == [s[1],s[2]],unvisited_s_states)
+	id_u = findfirst(i -> i == u,unvisited_u_states)
+	deleteat!(unvisited_s_states,id_s)
+	deleteat!(unvisited_u_states,id_u)
 	for t in 1:max_t
 		actions,policy = optimal_policy(s,u,opt_value,env)
 		idx = rand(Categorical(policy))
@@ -410,13 +445,24 @@ function sample_trajectory(s_0,u_0,opt_value,max_t,env::environment)
 		u_p = transition_u(s,u,action,env)
 		s = s_p
 		u = u_p
+		id_s = findfirst(i -> i == [s[1],s[2]],unvisited_s_states)
+		id_u = findfirst(i -> i == u,unvisited_u_states)
+		if id_s != nothing
+			deleteat!(unvisited_s_states,id_s)
+		end
+		if id_u != nothing
+			deleteat!(unvisited_u_states,id_u)
+		end
 		push!(xpositions,[s[1]])
 		push!(ypositions,[s[2]])
 		push!(all_x,s[1])
 		push!(all_y,s[2])
-		push!(u_states,u)		
+		push!(u_states,u)
+		if length(unvisited_s_states) == 0
+			return xpositions,ypositions,u_states,all_x,all_y,urgency,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,t
+		end
 	end
-	xpositions,ypositions,u_states,all_x,all_y,urgency
+	xpositions,ypositions,u_states,all_x,all_y,urgency,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,max_t
 end
 
 # ╔═╡ a4457d71-27dc-4c93-81ff-f21b2dfed41d
@@ -425,7 +471,7 @@ md"### A movie"
 # ╔═╡ 7ad00e90-3431-4e61-9a7f-efbc14d0724e
 function animation(x_pos,y_pos,us,max_t,env::environment)
 anim = @animate for t in 1:max_t+2
-	reward_sizes = [10,20]
+	reward_sizes = env.reward_mags
 	#Draw obstacles
 	ptest = scatter(env.obstaclesx,env.obstaclesy,markershape = :square, markersize = 20, color = "black")
 	#Draw food
@@ -510,10 +556,13 @@ function q_iteration(env::environment,tolerance = 1E-2, n_iter = 100,verbose = f
 end
 
 # ╔═╡ caadeb3b-0938-4559-8122-348c960a6eb1
-q_value,t_stop_q = q_iteration(env1,tol,n_iter,true);
+#To compute
+#q_value,t_stop_q = q_iteration(env1,tol,n_iter,true);
+#To read out from file
+q_value = reshape(readdlm("values/q_value_gain_$(env1.reward_mags[1]).dat"),env1.sizex,env1.sizey,env1.sizeu);
 
 # ╔═╡ 29a4d235-8b03-4701-af89-cd289f212e7d
-writedlm("q_value_u_$(env1.sizeu).dat",q_value)
+#writedlm("q_value_u_$(env1.sizeu).dat",q_value)
 
 # ╔═╡ 819c1be2-339f-4c37-b8a3-9d8cb6be6496
 u_q = 20
@@ -565,9 +614,25 @@ function sample_trajectory_q(s_0,u_0,opt_value,max_t,env::environment)
 	all_y = Any[]
 	push!(xpositions,[s_0[1]])
 	push!(ypositions,[s_0[2]])
+	push!(all_x,s_0[1])
+	push!(all_y,s_0[2])
 	push!(u_states,u_0)
+	unvisited_s_states = Any[]
+	unvisited_u_states = collect(1:env.sizeu)
+	n_arena_states = env.sizex*env.sizey - length(env.obstacles)
+	for x in 1:env.sizex
+		for y in 1:env.sizey
+			if ([x,y] in env.obstacles) == false
+				push!(unvisited_s_states,[x,y])
+			end
+		end
+	end
 	s = deepcopy(s_0)
 	u = deepcopy(u_0)
+	id_s = findfirst(i -> i == [s[1],s[2]],unvisited_s_states)
+	id_u = findfirst(i -> i == u,unvisited_u_states)
+	deleteat!(unvisited_s_states,id_s)
+	deleteat!(unvisited_u_states,id_u)
 	for t in 1:max_t
 		actions,n_actions = optimal_policy_q(s,u,opt_value,env)
 		action = rand(actions)
@@ -575,13 +640,24 @@ function sample_trajectory_q(s_0,u_0,opt_value,max_t,env::environment)
 		u_p = transition_u(s,u,action,env)
 		s = s_p
 		u = u_p
+		id_s = findfirst(i -> i == [s[1],s[2]],unvisited_s_states)
+		id_u = findfirst(i -> i == u,unvisited_u_states)
+		if id_s != nothing
+			deleteat!(unvisited_s_states,id_s)
+		end
+		if id_u != nothing
+			deleteat!(unvisited_u_states,id_u)
+		end
 		push!(xpositions,[s[1]])
 		push!(ypositions,[s[2]])
 		push!(all_x,s[1])
 		push!(all_y,s[2])
 		push!(u_states,u)		
+		if length(unvisited_s_states) == 0
+			return xpositions,ypositions,u_states,all_x,all_y,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,t
+		end
 	end
-	xpositions,ypositions,u_states,all_x,all_y
+	xpositions,ypositions,u_states,all_x,all_y,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,max_t
 end
 
 # ╔═╡ 6e7b6b2a-5489-4860-930e-47b7df014840
@@ -593,37 +669,183 @@ md"Produce animation? $(@bind movie_q CheckBox(default = false))"
 # ╔═╡ 5b1ba4f6-37a9-4e61-b6cc-3d495aa67c9d
 md"# Comparison between agents"
 
+# ╔═╡ 91e0e0ca-d9df-44d7-81e6-00b343ad9bf0
+md"## Many gains"
+
+# ╔═╡ 1bb9994a-ed89-4e08-921e-39d46fc45e0a
+@with_kw struct parameters
+	size_x = 11
+	size_y = 11
+	capacity = 100
+	reward_locations = [[1,1],[size_x,size_y],[size_x,1],[1,size_y]]
+end
+
+# ╔═╡ 5d0ad59b-366e-4660-9350-92d34d616f16
+pars = parameters()
+
+# ╔═╡ beb1a211-f262-49d8-a3c4-73a0cf727921
+energy_gains = [8,9,10]
+
+# ╔═╡ c7d270aa-9c5c-461b-ac6b-2b9287a2d461
+function write_valuefunctions_to_files(energy_gains,pars)
+	tol = 1E-2
+	n_iter = 10000
+	for gain in energy_gains
+		println("gain = ", gain)
+		reward_mags = [1,1,1,1].*gain
+		env_iteration = initialize_fourrooms(pars.size_x,pars.size_y,pars.capacity,pars.reward_locations,reward_mags)
+		h_value,t_stop = h_iteration(env_iteration,tol,n_iter)
+		q_value,t_stop_q = q_iteration(env_iteration,tol,n_iter,true)
+		writedlm("values/h_value_gain_$(gain).dat",h_value)
+		writedlm("values/q_value_gain_$(gain).dat",q_value)
+	end
+end
+
+# ╔═╡ aea98aa9-46a5-47d7-b78f-3b784bcb8668
+begin
+	#Only run if wanting to modify value functions
+	#write_valuefunctions_to_files(energy_gains,pars)
+end
+
+# ╔═╡ 1c69c08b-aae5-453e-98ef-df35c7b4db50
+function occupancies_qh(energy_gains,n_episodes,t_episode,pars)
+	s_0 = [3,3]
+	u_0 = Int(pars.capacity/2)
+	h_s_occupancies = zeros(length(energy_gains),n_episodes)
+	h_u_occupancies = zeros(length(energy_gains),n_episodes)
+	q_s_occupancies = zeros(length(energy_gains),n_episodes)
+	q_u_occupancies = zeros(length(energy_gains),n_episodes)
+	times_h = zeros(length(energy_gains),n_episodes)
+	times_q = zeros(length(energy_gains),n_episodes)
+	for (i,gain) in enumerate(energy_gains)
+		println("gain = ", gain)
+		h_val = reshape(readdlm("values/h_value_gain_$(gain).dat"),pars.size_x,pars.size_y,pars.capacity)
+		q_val = reshape(readdlm("values/q_value_gain_$(gain).dat"),pars.size_x,pars.size_y,pars.capacity)
+		reward_mags = [1,1,1,1].*gain
+		env_iteration = initialize_fourrooms(pars.size_x,pars.size_y,pars.capacity,pars.reward_locations,reward_mags)
+		for j in 1:n_episodes
+		println("episode = ", j)
+			_,_,h_us,h_allx,h_ally,_,h_s_occupancies[i,j],h_u_occupancies[i,j],times_h[i,j] = sample_trajectory(s_0,u_0,h_val,t_episode,env_iteration)
+			_,_,q_us,q_allx,q_ally,q_s_occupancies[i,j],q_u_occupancies[i,j],times_q[i,j] = sample_trajectory_q(s_0,u_0,q_val,t_episode,env_iteration)
+		end
+	end
+	h_s_occupancies, h_u_occupancies, q_s_occupancies, q_u_occupancies, times_h, times_q
+end
+
+# ╔═╡ 0a9dc717-dbcb-4b27-8c76-cb8fbfdbec96
+begin
+	n_episodes = 50
+	t_episode = 1000000
+end
+
+# ╔═╡ 631088a4-d06e-41c3-bc39-17db0ed9c9b8
+begin
+	#This computes occupancies running n_episodes, each with a max duration of t_episode, for both Q and H agent. It takes up to 8 hours for t_episode = 1E6 and 50 episodes.
+	#h_s_occ,h_u_occ,q_s_occ,q_u_occ,times_h,times_q = occupancies_qh(energy_gains,n_episodes,t_episode,pars)
+end
+
+# ╔═╡ e1b4225e-1801-4be2-ad2d-45125db55251
+# begin
+# h_s_occ_all = vcat(h_s_occ2,h_s_occ)
+# q_s_occ_all = vcat(q_s_occ2,q_s_occ)
+# h_u_occ_all = vcat(h_u_occ2,h_u_occ)
+# q_u_occ_all = vcat(q_u_occ2,q_u_occ)
+# times_h_all = vcat(times_h2,times_h)
+# times_q_all = vcat(times_q2,times_q)
+# 	writedlm("h_s_occ.dat",h_s_occ_all)
+# 	writedlm("h_u_occ.dat",h_u_occ_all)
+# 	writedlm("q_s_occ.dat",q_s_occ_all)
+# 	writedlm("q_u_occ.dat",q_u_occ_all)
+# 	writedlm("times_h.dat",times_h_all)
+# 	writedlm("times_q.dat",times_q_all)
+# end
+
+# ╔═╡ 2457d09b-bd47-472d-b7de-fe04c2f0a2c2
+begin
+	h_s_occ_all=readdlm("occs/h_s_occ.dat")
+	h_u_occ_all=readdlm("occs/h_u_occ.dat")
+	q_s_occ_all=readdlm("occs/q_s_occ.dat")
+	q_u_occ_all=readdlm("occs/q_u_occ.dat")
+	times_h_all=readdlm("occs/times_h.dat")
+	times_q_all=readdlm("occs/times_q.dat")
+end
+
+# ╔═╡ f059814e-6426-40f2-85b9-a6037e802928
+energies = collect(2:10)
+
+# ╔═╡ 097aadd0-b1c3-4553-8b5b-b5427b222c06
+begin
+	occs = plot(xlabel = "Food gain", ylabel = "% visited locations",size = (350,300))
+	plot!(occs,energies,mean(h_s_occ_all,dims = 2),yerror = std(h_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,label = "H agent",lw = 2)
+	plot!(occs,energies,mean(q_s_occ_all,dims = 2),yerror = std(q_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,label = "Q agent",lw = 2)
+	plot!(legend_position = :bottomright,legend = false)
+	#savefig("location_occ_gain.pdf")
+end
+
+# ╔═╡ 80a9971a-fde3-47f8-a7ce-7acb00b4969a
+begin
+	occs_u = plot(xlabel = "Food gain", ylabel = "% visited energies",size = (350,300))
+	plot!(occs_u,energies,mean(h_u_occ_all,dims = 2),yerror = std(h_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw = 2,label = "H agent")
+	plot!(occs_u,energies,mean(q_u_occ_all,dims = 2),yerror = std(q_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw = 2,label = "Q agent")
+	plot!(legend_position = :bottomright,legend = false)
+	#savefig("energy_occ_gain.pdf")
+end
+
+# ╔═╡ 17ed3317-8481-4d01-ab96-97c8d2b118d7
+begin
+	times_plot = plot(xlabel = "Food gain", ylabel = "Steps until full\n location visitation",size = (390,300),margin = 3Plots.mm,legend_position = :topright,legend_foreground_color = nothing)
+	plot!(times_plot,energies,mean(times_h_all,dims =2),yerror = std(times_h_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "H agent")
+	plot!(times_plot,energies,mean(times_q_all,dims =2),yerror = std(times_q_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "Q agent")
+	plot!(times_plot, yscale = :log, ylim = (1E4,1E6))
+	#savefig("time_gain.pdf")
+end
+
+# ╔═╡ e12e66a0-979a-4303-b132-12e44b5a31f8
+begin
+	hist_occ = plot()
+	for i in 3:5
+		plot!(hist_occ,h_s_occ2[i,:], label = "H, food = $(energy_gains_all[i])", st = :stephist, bins = collect(-0.05:0.1:1.05))
+		plot!(hist_occ,q_s_occ2[i,:], label = "Q, food = $(energy_gains_all[i])", st = :stephist, bins = collect(-0.05:0.1:1.05))
+	end
+	plot(hist_occ)
+end
+
+# ╔═╡ 1f3be0d8-d296-4eb0-a951-bd862914ae92
+md"## One long episode"
+
 # ╔═╡ bb45134a-88b1-40d2-a486-c7afe8ac744e
 begin
-	q_value_50 = readdlm("q_value_u_50.dat")
-	h_value_50 = readdlm("h_value_u_50.dat")
-	q_value_200 = readdlm("q_value_u_200.dat")
-	h_value_200 = readdlm("h_value_u_200.dat")
-	q_value_50 = reshape(q_value_50,env1.sizex,env1.sizey,env1.sizeu)
-	h_value_50 = reshape(h_value_50,env1.sizex,env1.sizey,env1.sizeu)
-	q_value_200 = reshape(q_value_200,env1.sizex,env1.sizey,env2.sizeu)
-	h_value_200 = reshape(h_value_200,env1.sizex,env1.sizey,env2.sizeu)
+	q_value_50 = q_value #readdlm("q_value_u_50.dat")
+	h_value_50 = h_value #readdlm("h_value_u_50.dat")
+	#q_value_200 = readdlm("q_value_u_200.dat")
+	#h_value_200 = readdlm("h_value_u_200.dat")
+	#q_value_50 = reshape(q_value_50,env1.sizex,env1.sizey,env1.sizeu)
+	#h_value_50 = reshape(h_value_50,env1.sizex,env1.sizey,env1.sizeu)
+	#q_value_200 = reshape(q_value_200,env1.sizex,env1.sizey,env2.sizeu)
+	#h_value_200 = reshape(h_value_200,env1.sizex,env1.sizey,env2.sizeu)
 end;
 
 # ╔═╡ f1d5ee65-10f5-424a-b018-2aff1a5d7ff8
 begin
 		#Initial condition
-		s_0 = [6,6] #[1,env.sizey]
-		u_0 = 50# Int(env1.sizeu)
+		s_0 = [3,3] #[1,env.sizey]
+		u_0 = Int(env1.sizeu)
 end
 
 # ╔═╡ bd16a66c-9c2f-449c-a792-1073c54e990b
 begin
-	draw_environment([s_0[1]],[s_0[2]],[u_0],env2)
-	savefig("arena.pdf")
+	draw_environment([3],[3],[u_0],env2)
+	#savefig("arena_fourrooms_side_$(env1.sizex).pdf")
 end
 
 # ╔═╡ a0729563-0b6d-4014-b8c7-9eb284a34606
 if movie
 	h_xpos_anim,h_ypos_anim,h_us_anim,h_allx_anim,h_ally_anim,h_urgency_anim = sample_trajectory(s_0,u_0,h_value,max_t_anim,env1)
 	anim_h = animation(h_xpos_anim,h_ypos_anim,h_us_anim,max_t_anim,env1)
-	gif(anim_h, "h_agent.gif", fps = 8)
 end
+
+# ╔═╡ 11b5409c-9db8-4b34-a111-7a62fedd23be
+gif(anim_h, fps = 12)
 
 # ╔═╡ b49b6396-c38a-462c-a9cb-177cb7c2b038
 histogram(h_urgency_anim,bins = collect(1:env1.sizeu), leg = false, ylabel = "times p(action) > 0.6", xlabel = "u", normed = true)
@@ -632,68 +854,184 @@ histogram(h_urgency_anim,bins = collect(1:env1.sizeu), leg = false, ylabel = "ti
 if movie_q
 	q_xpos_anim,q_ypos_anim,q_us_anim,q_allx_anim,q_ally_anim= sample_trajectory_q(s_0,u_0,q_value,max_t_anim,env1)
 	anim_q = animation(q_xpos_anim,q_ypos_anim,q_us_anim,max_t_anim,env1)
-	gif(anim_q, "q_agent.gif", fps = 8)
+	#gif(anim_q, "q_agent.gif", fps = 8)
 end
 
-# ╔═╡ 693922e7-65f0-4350-9d5e-610ad0da7680
-u_0
+# ╔═╡ 139c806d-3f52-4fb9-9fe8-c57259ed1b6f
+gif(anim_q, fps = 12)
 
 # ╔═╡ 78a5caf6-eced-4783-b950-26563f632be2
 begin
-	max_t = 100000
-end;
+	@bind max_t Select([1000 => "short episode", 2E6 => "long episode"], [1000])
+end
 
 # ╔═╡ 4a868ec2-b636-4d5d-a248-0a4e0cca3668
 begin
-	h_xpos_50,h_ypos_50,h_us_50,h_allx_50,h_ally_50,h_urgency_50 = sample_trajectory(s_0,u_0,h_value_50,max_t,env1)
-	h_xpos_200,h_ypos_200,h_us_200,h_allx_200,h_ally_200,h_urgency_200 = sample_trajectory(s_0,u_0,h_value_200,max_t,env2)
+	h_xpos_50,h_ypos_50,h_us_50,h_allx_50,h_ally_50,h_urgency_50,h_visited_s,h_visited_u,h_time = sample_trajectory(s_0,u_0,h_value_50,max_t,env1)
+	#h_xpos_200,h_ypos_200,h_us_200,h_allx_200,h_ally_200,h_urgency_200 = sample_trajectory(s_0,u_0,h_value_200,max_t,env2)
 end
+
+# ╔═╡ bca4b9ce-e267-467f-a906-6830a2333f13
+h_time
 
 # ╔═╡ 6edb5b48-b590-492d-bd3e-6a4f549aae30
 begin
-	q_xpos_50,q_ypos_50,q_us_50,q_allx_50,q_ally_50 = sample_trajectory_q(s_0,u_0,q_value_50,max_t,env1)
-	q_xpos_200,q_ypos_200,q_us_200,q_allx_200,q_ally_200 = sample_trajectory_q(s_0,u_0,q_value_200,max_t,env2)
+	q_xpos_50,q_ypos_50,q_us_50,q_allx_50,q_ally_50,q_visited_s,q_visited_u,q_time = sample_trajectory_q(s_0,u_0,q_value_50,max_t,env1)
+	#q_xpos_200,q_ypos_200,q_us_200,q_allx_200,q_ally_200 = sample_trajectory_q(s_0,u_0,q_value_200,max_t,env2)
 end;
 
 # ╔═╡ 567f6b5d-c67e-4a43-9699-5625f1cc21a4
 md"### Histogram of visited external states"
 
 # ╔═╡ 9d9801e4-42a9-46b0-ba4e-253b276e5e21
-theme(:vibrant)
+begin
+	theme(:vibrant)
+	default(titlefont = ("Computer Modern",16), legend_font_family = "Computer Modern", legend_font_pointsize = 14, guidefont = ("Computer Modern", 16), tickfont = ("Computer Modern", 14))
+end
+
+# ╔═╡ c933c84c-f158-4626-850b-7f5a164ea4aa
+function plot_histogram(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,t_hist = 500000,maxclim = 0.2)
+	## H agent
+	p_h50_hist = plot(ticks = false, title = "H agent")#,ylabel = "\$u_{max} = 50\$")
+	#Paint the whole arena 
+	heatmap!(p_h50_hist,zeros(env1.sizex,env1.sizey))
+	#Draw obstacles
+	plot!(p_h50_hist,env1.obstaclesx,env1.obstaclesy,bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)), st = :histogram2d, color = "black")
+	#Draw histogram
+		histogram2d!(p_h50_hist,h_allx_50[1:t_hist],h_ally_50[1:t_hist], bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = :true,cbar = false,clim = (0,maxclim))
+
+	## Q agent
+	p_q50_hist = plot(ticks = false, title = "Q agent")
+	#Paint the whole arena
+	heatmap!(p_q50_hist,zeros(env1.sizex,env1.sizey))
+	#Draw obstacles
+	plot!(p_q50_hist,env1.obstaclesx,env1.obstaclesy,bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)), st = :histogram2d, color = "black")
+	#Draw histogram
+	histogram2d!(p_q50_hist, q_allx_50[1:t_hist],q_ally_50[1:t_hist], bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = :true,clim = (0,maxclim))
+	#Colorbar
+	plot!(p_q50_hist,colorbar_ticks = collect(maxclim/4:maxclim/4:maxclim))
+	# p_h200_hist = plot(ticks = false)
+	# #plot!(p_hist1,env1.obstaclesx,env1.obstaclesy, st = :histogram2d)
+	# heatmap!(p_h200_hist,zeros(env1.sizex,env1.sizey))
+	# histogram2d!(p_h200_hist,h_allx_200,h_ally_200, bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = true,clim = (0,0.2),cbar = false,ylabel = "\$u_{max} = 200\$")
+	# p_q200_hist = plot(ticks = false)
+	# heatmap!(p_q200_hist,zeros(env1.sizex,env1.sizey))
+	# histogram2d!(p_q200_hist, q_allx_200,q_ally_200, bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = true,clim = (0,0.2))
+	plot(p_h50_hist,p_q50_hist, layout = Plots.grid(1, 2, widths=[0.45,0.55]),size = (600,300),margin = 5Plots.mm)
+	end
+
+# ╔═╡ e671cb3e-2d1a-4196-9274-89d41ac323c8
+begin
+	plot_histogram(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,Int(h_time),0.01)
+	#savefig("locations_histogram.svg")
+end
+
+# ╔═╡ b2918c10-ca06-4c1d-91c1-c17e4dd49c9d
+md"### Animations? $(@bind animations CheckBox(default = false))"
 
 # ╔═╡ 3e8a7dbb-8dfa-44f8-beab-ea32f3d478b4
-begin
-	p_h50_hist = plot(ticks = false, title = "H agent",ylabel = "\$u_{max} = 50\$")
-	#plot!(p_hist1,env1.obstaclesx,env1.obstaclesy, st = :histogram2d)
+function animate_histogram(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,maxclim,tstep = 10000,max_t = 500000)
+	anim = @animate for t_hist in 1:tstep:Int(max_t)
+	## H agent
+	p_h50_hist = plot(ticks = false, title = "H agent")#,ylabel = "\$u_{max} = 50\$")
+	#Paint the whole arena 
 	heatmap!(p_h50_hist,zeros(env1.sizex,env1.sizey))
-	histogram2d!(p_h50_hist,h_allx_50,h_ally_50, bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = :pdf,clim = (0,0.2),cbar = false)
+	#Draw obstacles
+	plot!(p_h50_hist,env1.obstaclesx,env1.obstaclesy,bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)), st = :histogram2d, color = "black")
+	#Draw histogram
+		histogram2d!(p_h50_hist,h_allx_50[1:t_hist],h_ally_50[1:t_hist], bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = :false,cbar = false,clim = (0,maxclim))
+
+	## Q agent
 	p_q50_hist = plot(ticks = false, title = "Q agent")
+	#Paint the whole arena
 	heatmap!(p_q50_hist,zeros(env1.sizex,env1.sizey))
-	histogram2d!(p_q50_hist, q_allx_50,q_ally_50, bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = :true,clim = (0,0.2))
+	#Draw obstacles
+	plot!(p_q50_hist,env1.obstaclesx,env1.obstaclesy,bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)), st = :histogram2d, color = "black")
+	histogram2d!(p_q50_hist, q_allx_50[1:t_hist],q_ally_50[1:t_hist], bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = :false,clim = (0,maxclim))
 	
-	p_h200_hist = plot(ticks = false)
-	#plot!(p_hist1,env1.obstaclesx,env1.obstaclesy, st = :histogram2d)
-	heatmap!(p_h200_hist,zeros(env1.sizex,env1.sizey))
-	histogram2d!(p_h200_hist,h_allx_200,h_ally_200, bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = true,clim = (0,0.2),cbar = false,ylabel = "\$u_{max} = 200\$")
-	p_q200_hist = plot(ticks = false)
-	heatmap!(p_q200_hist,zeros(env1.sizex,env1.sizey))
-	histogram2d!(p_q200_hist, q_allx_200,q_ally_200, bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = true,clim = (0,0.2))
-	plot(p_h50_hist,p_q50_hist,p_h200_hist,p_q200_hist, layout = Plots.grid(2, 2, widths=[0.45,0.55]),size = (800,700),margin = 4Plots.mm)
-	#savefig("histogram_space.png")
+	# p_h200_hist = plot(ticks = false)
+	# #plot!(p_hist1,env1.obstaclesx,env1.obstaclesy, st = :histogram2d)
+	# heatmap!(p_h200_hist,zeros(env1.sizex,env1.sizey))
+	# histogram2d!(p_h200_hist,h_allx_200,h_ally_200, bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = true,clim = (0,0.2),cbar = false,ylabel = "\$u_{max} = 200\$")
+	# p_q200_hist = plot(ticks = false)
+	# heatmap!(p_q200_hist,zeros(env1.sizex,env1.sizey))
+	# histogram2d!(p_q200_hist, q_allx_200,q_ally_200, bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = true,clim = (0,0.2))
+	plot(p_h50_hist,p_q50_hist, layout = Plots.grid(1, 2, widths=[0.45,0.55]),size = (800,400),margin = 5Plots.mm)
+	end
+	#plot(p_h50_hist,p_q50_hist,p_h200_hist,p_q200_hist, layout = Plots.grid(2, 2, widths=[0.45,0.55]),size = (800,700),margin = 4Plots.mm)
+	#savefig("histogram_space_fourrooms_$(env1.sizex).svg")
+	anim
 end
+
+# ╔═╡ 298d4faf-bca5-49a5-b0e8-9e0b3600e3ae
+begin
+	if animations == true
+		maxclim = 30000
+		tstep = 10000
+		maxt = max_t
+		hist_animated = animate_histogram(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,maxclim,tstep,maxt)
+	end
+end
+
+# ╔═╡ cc3af52b-1d47-48b5-bbc4-9ef1327f4dfa
+gif(hist_animated,fps = 10)
+
+# ╔═╡ 1ace6a77-cc48-4b3d-8774-035015ffd74a
+function animate_trajectory(h_x_pos,h_y_pos,q_x_pos,q_y_pos,env,tstep = 1,max_t = 500000)
+	
+	## H agent
+	p_h50 = plot(ticks = false, title = "H agent")#,ylabel = "\$u_{max} = 50\$")
+	p_q50 = plot(ticks = false, title = "Q agent")
+	reward_sizes = env.reward_mags
+	#Draw obstacles
+	scatter!(p_h50,env.obstaclesx,env.obstaclesy,markershape = :square, markersize = 15, color = "black")
+	scatter!(p_q50,env.obstaclesx,env.obstaclesy,markershape = :square, markersize = 15, color = "black")
+	#Draw food
+	for i in 1:length(reward_mags)
+		scatter!(p_h50,[env.reward_locations[i][1]],[env.reward_locations[i][2]],markersize = reward_sizes[i]*2,color = "green",markershape = :diamond)
+		scatter!(p_q50,[env.reward_locations[i][1]],[env.reward_locations[i][2]],markersize = reward_sizes[i]*2,color = "green",markershape = :diamond)
+	end
+	plot!(p_h50, gridalpha = 0.8,  xticks = collect(0.5:env.sizex+0.5), yticks = collect(0.5:env.sizey+0.5), tickfontcolor = :white, grid = true, ylim=(0.5,env.sizey +0.5), xlim=(0.5,env.sizex +0.5))
+	plot!(p_q50, gridalpha = 0.8,  xticks = collect(0.5:env.sizex+0.5), yticks = collect(0.5:env.sizey+0.5), tickfontcolor = :white, grid = true, ylim=(0.5,env.sizey +0.5), xlim=(0.5,env.sizex +0.5))
+
+	anim = @animate for t_traj in tstep:tstep:Int(max_t)
+
+	#Draw histogram
+		plot!(p_h50, h_x_pos[t_traj-tstep+1:t_traj+1],h_y_pos[t_traj-tstep+1:t_traj+1], markersize = 1, leg = false, color = "blue", linealpha = 0.2)
+
+	## Q agent
+	plot!(p_q50, q_x_pos[t_traj-tstep+1:t_traj],q_y_pos[t_traj-tstep+1:t_traj], markersize = 1, leg = false, color = "blue", linealpha = 0.2)
+	plot(p_h50,p_q50, layout = Plots.grid(1, 2, widths=[0.5,0.5]),size = (800,400),margin = 3Plots.mm)
+	end
+	#plot(p_h50_hist,p_q50_hist,p_h200_hist,p_q200_hist, layout = Plots.grid(2, 2, widths=[0.45,0.55]),size = (800,700),margin = 4Plots.mm)
+	#savefig("histogram_space_fourrooms_$(env1.sizex).svg")
+	anim
+end
+
+# ╔═╡ 19b1a5c0-c5a8-45bc-8cf0-fc6f97ccff91
+begin
+	if animations == true
+		tstep_traj = 5000
+		maxt_traj = 1000000
+		traj_animated = animate_trajectory(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,tstep_traj,maxt_traj)
+	end
+end
+
+# ╔═╡ cda6ab20-3dbb-43eb-9ae3-71889cb3da88
+gif(traj_animated,fps = 10)
 
 # ╔═╡ 1483bfe5-150d-40f5-b9dc-9488dcbc88b2
 md"### Histogram of visitation of internal states"
 
 # ╔═╡ d93ef435-c460-40cc-96e7-817e9eaace55
 begin
-	p_us = plot(xlim = (0,200), xlabel = "Internal energy \$u\$", ylabel = "Density",legend_foreground_color = nothing, margin = 5Plots.mm, majorgrid = false,size = (600,300))
+	p_us = plot(xlim = (0,50), xlabel = "Internal energy", ylabel = "Probability",legend_foreground_color = nothing, margin = 4Plots.mm, majorgrid = false,size = (400,300))
 	bd = 1
-	plot!(p_us,q_us_200, label = "Q agent, \$u_{max} = 200\$", bandwidth = bd, st = :density,linewidth = 2)
-	plot!(p_us,h_us_200, label = "H agent, \$u_{max} = 200\$", bandwidth = bd, st = :density,linewidth = 2)
-	plot!(p_us,q_us_50, label = "Q agent, \$u_{max} = 50\$", bandwidth = bd, st = :density,linewidth = 3,ls = :dash)
-	plot!(p_us,h_us_50, label = "H agent, \$u_{max} = 50\$", bandwidth = bd, st = :density,linewidth = 3,ls = :dash)
-	#savefig("histogram_us.pdf")
+	plot!(p_us,h_us_50, label = "H agent", bandwidth = bd, st = :density,linewidth = 3)
+	plot!(p_us,q_us_50, label = "Q agent", bandwidth = bd, st = :density,linewidth = 3)
+	# plot!(p_us,h_us_50, label = "H agent", bins = collect(0:1:50), st = :stephist,normalized = :pdf, linewidth = 3)
+	# plot!(p_us,q_us_50, label = "Q agent", bins = collect(0:1:50), st = :stephist,normalized = :pdf, linewidth = 3)
+	#savefig("energies_histogram.pdf")
 end
 
 # ╔═╡ Cell order:
@@ -714,27 +1052,32 @@ end
 # ╟─92bca36b-1dc9-4c03-88c0-6a684dfbec9f
 # ╟─c96e3331-1dcd-4b9c-b28d-d74493c8934d
 # ╟─d0a5c0fe-895f-42d8-9db6-3b0fcc6bb43e
+# ╠═155056b5-21ea-40d7-8cce-19fde5a1b150
 # ╟─6c716ad4-23c4-46f8-ba77-340029fcce87
 # ╠═07abd5b7-b465-425b-9823-19b73d07db56
 # ╠═8f2fdc23-1b82-4479-afe7-8eaf3304a122
-# ╠═fa33c170-e46e-444b-92de-cd80327a7b0a
-# ╠═5e6964a3-7169-4c0d-b6d3-3f11d3cc7d36
-# ╠═403a06a7-e30f-4aa4-ade1-55dee37cd514
+# ╠═194ffe45-b7a3-4dd4-a346-9a2334979526
+# ╟─403a06a7-e30f-4aa4-ade1-55dee37cd514
 # ╠═bd16a66c-9c2f-449c-a792-1073c54e990b
 # ╟─ac3a4aa3-1edf-467e-9a47-9f6d6655cd04
 # ╟─c6870051-0241-4cef-9e5b-bc876a3894fa
 # ╟─d88e0e27-2354-43ad-9c26-cdc90beeea0f
 # ╟─184636e2-c87d-4a89-b231-ff4aef8424d5
 # ╠═82fbe5a0-34a5-44c7-bdcb-36d16f09ea7b
+# ╠═a11b198f-0a55-4529-b44c-270f37ef773a
 # ╠═e67db730-ca7c-4ef4-a2d2-7e001d5f7a79
-# ╠═73722c01-adee-4bfd-97b4-60f2ced23725
+# ╟─73722c01-adee-4bfd-97b4-60f2ced23725
 # ╟─76f506dc-b21d-4e13-a8e8-9d1b3bd21b30
 # ╟─aa5e5bf6-6504-4c01-bb36-df0d7306f9de
-# ╟─ef9e78e2-d61f-4940-9e62-40c6d060353b
+# ╠═10bf144f-760d-4a25-893b-c70f2bff1efd
+# ╠═1b98932a-830e-4738-a75c-22ec3d83cd96
+# ╠═8f42159d-60af-49ea-89f7-f7bf4e3f7e38
+# ╠═ef9e78e2-d61f-4940-9e62-40c6d060353b
 # ╟─a4457d71-27dc-4c93-81ff-f21b2dfed41d
 # ╟─7ad00e90-3431-4e61-9a7f-efbc14d0724e
 # ╟─b072360a-6646-4d6d-90ea-716085c53f66
 # ╠═a0729563-0b6d-4014-b8c7-9eb284a34606
+# ╠═11b5409c-9db8-4b34-a111-7a62fedd23be
 # ╟─f45ca37a-cba5-41e8-8058-1138e58daf73
 # ╠═b49b6396-c38a-462c-a9cb-177cb7c2b038
 # ╟─f98d6ea0-9d98-4940-907c-455397158f3b
@@ -745,20 +1088,46 @@ end
 # ╠═819c1be2-339f-4c37-b8a3-9d8cb6be6496
 # ╠═358bc5ca-c1f6-40f1-ba2d-7e8466531903
 # ╟─40d62df0-53bb-4b46-91b7-78ffd621a519
-# ╠═005720d3-5920-476b-9f96-39971f512452
-# ╠═2379dcc3-53cb-4fb6-b1e8-c851e36acd1f
+# ╟─005720d3-5920-476b-9f96-39971f512452
+# ╟─2379dcc3-53cb-4fb6-b1e8-c851e36acd1f
 # ╟─6e7b6b2a-5489-4860-930e-47b7df014840
 # ╟─2ed5904d-03a3-4999-a949-415d0cf47328
 # ╠═787bbe73-6052-41e0-bc8c-955e4a884886
-# ╠═693922e7-65f0-4350-9d5e-610ad0da7680
+# ╠═139c806d-3f52-4fb9-9fe8-c57259ed1b6f
 # ╟─5b1ba4f6-37a9-4e61-b6cc-3d495aa67c9d
+# ╟─91e0e0ca-d9df-44d7-81e6-00b343ad9bf0
+# ╠═1bb9994a-ed89-4e08-921e-39d46fc45e0a
+# ╠═5d0ad59b-366e-4660-9350-92d34d616f16
+# ╟─c7d270aa-9c5c-461b-ac6b-2b9287a2d461
+# ╠═aea98aa9-46a5-47d7-b78f-3b784bcb8668
+# ╟─1c69c08b-aae5-453e-98ef-df35c7b4db50
+# ╠═beb1a211-f262-49d8-a3c4-73a0cf727921
+# ╠═0a9dc717-dbcb-4b27-8c76-cb8fbfdbec96
+# ╠═631088a4-d06e-41c3-bc39-17db0ed9c9b8
+# ╠═e1b4225e-1801-4be2-ad2d-45125db55251
+# ╠═2457d09b-bd47-472d-b7de-fe04c2f0a2c2
+# ╠═f059814e-6426-40f2-85b9-a6037e802928
+# ╠═097aadd0-b1c3-4553-8b5b-b5427b222c06
+# ╠═80a9971a-fde3-47f8-a7ce-7acb00b4969a
+# ╠═17ed3317-8481-4d01-ab96-97c8d2b118d7
+# ╠═e12e66a0-979a-4303-b132-12e44b5a31f8
+# ╟─1f3be0d8-d296-4eb0-a951-bd862914ae92
 # ╠═bb45134a-88b1-40d2-a486-c7afe8ac744e
 # ╠═f1d5ee65-10f5-424a-b018-2aff1a5d7ff8
 # ╠═78a5caf6-eced-4783-b950-26563f632be2
+# ╠═bca4b9ce-e267-467f-a906-6830a2333f13
 # ╠═4a868ec2-b636-4d5d-a248-0a4e0cca3668
 # ╠═6edb5b48-b590-492d-bd3e-6a4f549aae30
 # ╟─567f6b5d-c67e-4a43-9699-5625f1cc21a4
 # ╠═9d9801e4-42a9-46b0-ba4e-253b276e5e21
-# ╠═3e8a7dbb-8dfa-44f8-beab-ea32f3d478b4
+# ╠═c933c84c-f158-4626-850b-7f5a164ea4aa
+# ╠═e671cb3e-2d1a-4196-9274-89d41ac323c8
+# ╟─b2918c10-ca06-4c1d-91c1-c17e4dd49c9d
+# ╟─3e8a7dbb-8dfa-44f8-beab-ea32f3d478b4
+# ╠═298d4faf-bca5-49a5-b0e8-9e0b3600e3ae
+# ╠═cc3af52b-1d47-48b5-bbc4-9ef1327f4dfa
+# ╟─1ace6a77-cc48-4b3d-8774-035015ffd74a
+# ╠═19b1a5c0-c5a8-45bc-8cf0-fc6f97ccff91
+# ╠═cda6ab20-3dbb-43eb-9ae3-71889cb3da88
 # ╟─1483bfe5-150d-40f5-b9dc-9488dcbc88b2
 # ╠═d93ef435-c460-40cc-96e7-817e9eaace55
