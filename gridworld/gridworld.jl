@@ -37,8 +37,8 @@ begin
 end
 
 # ╔═╡ b4e7b585-261c-4044-87cc-cbf669768145
-#Time steps for animations
-max_t_anim = 100
+#Time steps for episode animations
+max_t_anim = 300
 
 # ╔═╡ 7feeec1a-7d7b-4220-917d-049f1e9b101b
 md"# Grid world environment"
@@ -217,7 +217,7 @@ begin
 	size_y = 11
 	capacity = 100
 	reward_locations = [[1,1],[size_x,size_y],[size_x,1],[1,size_y]]
-	reward_mags = [3,3,3,3]
+	reward_mags = [4,4,4,4]
 	env1 = initialize_fourrooms(size_x,size_y,capacity,reward_locations,reward_mags)
 	#one small room
 	#obstacles = [[1,4],[2,4],[3,4],[4,3],[4,2],[4,1]]
@@ -392,19 +392,8 @@ end
 # ╔═╡ aa5e5bf6-6504-4c01-bb36-df0d7306f9de
 md"## Sample trajectory"
 
-# ╔═╡ 10bf144f-760d-4a25-893b-c70f2bff1efd
-a = [1,2,3,4,5,6,7]
-
-# ╔═╡ 1b98932a-830e-4738-a75c-22ec3d83cd96
-id = findfirst(i -> i == 4,a)
-
-# ╔═╡ 8f42159d-60af-49ea-89f7-f7bf4e3f7e38
-if id != nothing
-	deleteat!(a,id)
-end
-
 # ╔═╡ ef9e78e2-d61f-4940-9e62-40c6d060353b
-function sample_trajectory(s_0,u_0,opt_value,max_t,env::environment)
+function sample_trajectory(s_0,u_0,opt_value,max_t,env::environment,occupancies = true)
 	xpositions = Any[]
 	ypositions = Any[]
 	u_states = Any[]
@@ -458,8 +447,10 @@ function sample_trajectory(s_0,u_0,opt_value,max_t,env::environment)
 		push!(all_x,s[1])
 		push!(all_y,s[2])
 		push!(u_states,u)
-		if length(unvisited_s_states) == 0
-			return xpositions,ypositions,u_states,all_x,all_y,urgency,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,t
+		if occupancies == true
+			if length(unvisited_s_states) == 0
+				return xpositions,ypositions,u_states,all_x,all_y,urgency,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,t
+			end
 		end
 	end
 	xpositions,ypositions,u_states,all_x,all_y,urgency,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,max_t
@@ -473,7 +464,7 @@ function animation(x_pos,y_pos,us,max_t,env::environment)
 anim = @animate for t in 1:max_t+2
 	reward_sizes = env.reward_mags
 	#Draw obstacles
-	ptest = scatter(env.obstaclesx,env.obstaclesy,markershape = :square, markersize = 20, color = "black")
+	ptest = scatter(env.obstaclesx,env.obstaclesy,markershape = :square, markersize = 24, color = "black")
 	#Draw food
 	for i in 1:length(reward_mags)
 		scatter!(ptest,[env.reward_locations[i][1]],[env.reward_locations[i][2]],markersize = reward_sizes[i],color = "green",markershape = :diamond)
@@ -489,7 +480,7 @@ anim = @animate for t in 1:max_t+2
 	else 
 		scatter!(ptest,[(env.sizex+1)/2],[(env.sizey+1)/2],markersize = 100,markershape = :square, color = "gray",leg = false)
 	end
-	plot(ptest,ptest2,layout = Plots.grid(1, 2, widths=[0.8,0.2]), title=["" "u(t)"], size = (1000,600))
+	plot(ptest,ptest2,layout = Plots.grid(1, 2, widths=[0.8,0.2]), title=["" "u(t)"], size = (800,600))
 end
 end
 
@@ -606,7 +597,7 @@ end
 optimal_policy_q([3,3],20,q_value,env1)
 
 # ╔═╡ 2379dcc3-53cb-4fb6-b1e8-c851e36acd1f
-function sample_trajectory_q(s_0,u_0,opt_value,max_t,env::environment)
+function sample_trajectory_q(s_0,u_0,opt_value,max_t,env::environment,occupancies = true)
 	xpositions = Any[]
 	ypositions = Any[]
 	u_states = Any[]
@@ -653,8 +644,10 @@ function sample_trajectory_q(s_0,u_0,opt_value,max_t,env::environment)
 		push!(all_x,s[1])
 		push!(all_y,s[2])
 		push!(u_states,u)		
-		if length(unvisited_s_states) == 0
-			return xpositions,ypositions,u_states,all_x,all_y,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,t
+		if occupancies == true
+			if length(unvisited_s_states) == 0
+				return xpositions,ypositions,u_states,all_x,all_y,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,t
+			end
 		end
 	end
 	xpositions,ypositions,u_states,all_x,all_y,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,max_t
@@ -682,9 +675,6 @@ end
 
 # ╔═╡ 5d0ad59b-366e-4660-9350-92d34d616f16
 pars = parameters()
-
-# ╔═╡ beb1a211-f262-49d8-a3c4-73a0cf727921
-energy_gains = [8,9,10]
 
 # ╔═╡ c7d270aa-9c5c-461b-ac6b-2b9287a2d461
 function write_valuefunctions_to_files(energy_gains,pars)
@@ -732,6 +722,9 @@ function occupancies_qh(energy_gains,n_episodes,t_episode,pars)
 	h_s_occupancies, h_u_occupancies, q_s_occupancies, q_u_occupancies, times_h, times_q
 end
 
+# ╔═╡ beb1a211-f262-49d8-a3c4-73a0cf727921
+energy_gains = [8,9,10]
+
 # ╔═╡ 0a9dc717-dbcb-4b27-8c76-cb8fbfdbec96
 begin
 	n_episodes = 50
@@ -768,7 +761,7 @@ begin
 	q_u_occ_all=readdlm("occs/q_u_occ.dat")
 	times_h_all=readdlm("occs/times_h.dat")
 	times_q_all=readdlm("occs/times_q.dat")
-end
+end;
 
 # ╔═╡ f059814e-6426-40f2-85b9-a6037e802928
 energies = collect(2:10)
@@ -791,24 +784,90 @@ begin
 	#savefig("energy_occ_gain.pdf")
 end
 
-# ╔═╡ 17ed3317-8481-4d01-ab96-97c8d2b118d7
-begin
-	times_plot = plot(xlabel = "Food gain", ylabel = "Steps until full\n location visitation",size = (390,300),margin = 3Plots.mm,legend_position = :topright,legend_foreground_color = nothing)
-	plot!(times_plot,energies,mean(times_h_all,dims =2),yerror = std(times_h_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "H agent")
-	plot!(times_plot,energies,mean(times_q_all,dims =2),yerror = std(times_q_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "Q agent")
-	plot!(times_plot, yscale = :log, ylim = (1E4,1E6))
-	#savefig("time_gain.pdf")
+# ╔═╡ 759294e1-65a0-407d-a6c7-e1dfff0c5a77
+function sample_trajectory_randomwalker(s_0,u_0,max_t,env::environment)
+	xpositions = Any[]
+	ypositions = Any[]
+	u_states = Any[]
+	all_x = Any[]
+	all_y = Any[]
+	urgency = Any[]
+	push!(xpositions,[s_0[1]])
+	push!(ypositions,[s_0[2]])
+	push!(all_x,s_0[1])
+	push!(all_y,s_0[2])
+	push!(u_states,u_0)
+	unvisited_s_states = Any[]
+	unvisited_u_states = collect(1:env.sizeu)
+	n_arena_states = env.sizex*env.sizey - length(env.obstacles)
+	for x in 1:env.sizex
+		for y in 1:env.sizey
+			if ([x,y] in env.obstacles) == false
+				push!(unvisited_s_states,[x,y])
+			end
+		end
+	end
+	s = deepcopy(s_0)
+	u = 2#deepcopy(u_0)
+	id_s = findfirst(i -> i == [s[1],s[2]],unvisited_s_states)
+	id_u = findfirst(i -> i == u,unvisited_u_states)
+	deleteat!(unvisited_s_states,id_s)
+	deleteat!(unvisited_u_states,id_u)
+	for t in 1:max_t
+		actions,_ = adm_actions(s,u,env)
+		action = rand(actions)
+		s_p = transition_s(s,action,env)
+		u_p = 2 #transition_u(s,u,action,env)
+		s = s_p
+		u = u_p
+		id_s = findfirst(i -> i == [s[1],s[2]],unvisited_s_states)
+		id_u = findfirst(i -> i == u,unvisited_u_states)
+		if id_s != nothing
+			deleteat!(unvisited_s_states,id_s)
+		end
+		if id_u != nothing
+			deleteat!(unvisited_u_states,id_u)
+		end
+		push!(xpositions,[s[1]])
+		push!(ypositions,[s[2]])
+		push!(all_x,s[1])
+		push!(all_y,s[2])
+		push!(u_states,u)
+		if length(unvisited_s_states) == 0
+			return xpositions,ypositions,u_states,all_x,all_y,urgency,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,t
+		end
+	end
+	xpositions,ypositions,u_states,all_x,all_y,urgency,1-length(unvisited_s_states)/n_arena_states,1-length(unvisited_u_states)/env.sizeu,max_t
 end
 
-# ╔═╡ e12e66a0-979a-4303-b132-12e44b5a31f8
-begin
-	hist_occ = plot()
-	for i in 3:5
-		plot!(hist_occ,h_s_occ2[i,:], label = "H, food = $(energy_gains_all[i])", st = :stephist, bins = collect(-0.05:0.1:1.05))
-		plot!(hist_occ,q_s_occ2[i,:], label = "Q, food = $(energy_gains_all[i])", st = :stephist, bins = collect(-0.05:0.1:1.05))
-	end
-	plot(hist_occ)
+# ╔═╡ fa1e2428-7486-40d0-962e-36083992aca4
+function occupancies_randomwalker(n_episodes,t_episode,pars)
+	s_0 = [3,3]
+	u_0 = Int(pars.capacity/2)
+	times = zeros(n_episodes)
+	env_iteration = initialize_fourrooms(pars.size_x,pars.size_y,pars.capacity,pars.reward_locations,[2,2,2,2])
+		for j in 1:n_episodes
+		println("episode = ", j)
+		_,_,_,_,_,_,_,_,times[j] = sample_trajectory_randomwalker(s_0,u_0,t_episode,env_iteration)
+		end
+	times
 end
+
+# ╔═╡ fa3943d6-eae0-43ac-9055-04fe6e1448a0
+times_randomwalker = occupancies_randomwalker(100,t_episode,pars)
+
+# ╔═╡ 17ed3317-8481-4d01-ab96-97c8d2b118d7
+begin
+	times_plot = plot(xlabel = "Food gain", ylabel = "Steps until full\n location visitation",size = (420,300),margin = 2Plots.mm,legend_position = (0.72,0.92),legend_foreground_color = nothing,legend_background_color = nothing)
+	plot!(times_plot,energies,mean(times_h_all,dims =2),yerror = std(times_h_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "H agent")
+	plot!(times_plot,energies,mean(times_q_all,dims =2),yerror = std(times_q_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "Q agent")
+	plot!(times_plot,energies,mean(times_randomwalker).*ones(length(energies)),lw = 1, linestyle = :dash, color = :black, annotations = (6,mean(times_randomwalker)+1000,Plots.text("Unconstrained random walk","Computer Modern",12)),label = false)
+	plot!(times_plot, yscale = :log, ylim = (1E3,1E6))
+	#savefig("time_gain_rw.pdf")
+end
+
+# ╔═╡ 86e6a81a-992c-4cc1-a1bb-bac95f9ee6e6
+histogram(times_randomwalker,bins = collect(0:200:5000))
 
 # ╔═╡ 1f3be0d8-d296-4eb0-a951-bd862914ae92
 md"## One long episode"
@@ -845,7 +904,7 @@ if movie
 end
 
 # ╔═╡ 11b5409c-9db8-4b34-a111-7a62fedd23be
-gif(anim_h, fps = 12)
+gif(anim_h, fps = 12, "episode.gif")
 
 # ╔═╡ b49b6396-c38a-462c-a9cb-177cb7c2b038
 histogram(h_urgency_anim,bins = collect(1:env1.sizeu), leg = false, ylabel = "times p(action) > 0.6", xlabel = "u", normed = true)
@@ -862,21 +921,18 @@ gif(anim_q, fps = 12)
 
 # ╔═╡ 78a5caf6-eced-4783-b950-26563f632be2
 begin
-	@bind max_t Select([1000 => "short episode", 2E6 => "long episode"], [1000])
+	@bind max_t Select([1000 => "short episode", 5E5 => "long episode"], [1000])
 end
 
 # ╔═╡ 4a868ec2-b636-4d5d-a248-0a4e0cca3668
 begin
-	h_xpos_50,h_ypos_50,h_us_50,h_allx_50,h_ally_50,h_urgency_50,h_visited_s,h_visited_u,h_time = sample_trajectory(s_0,u_0,h_value_50,max_t,env1)
+	h_xpos_50,h_ypos_50,h_us_50,h_allx_50,h_ally_50,h_urgency_50,h_visited_s,h_visited_u,h_time = sample_trajectory(s_0,u_0,h_value_50,max_t,env1,false)
 	#h_xpos_200,h_ypos_200,h_us_200,h_allx_200,h_ally_200,h_urgency_200 = sample_trajectory(s_0,u_0,h_value_200,max_t,env2)
 end
 
-# ╔═╡ bca4b9ce-e267-467f-a906-6830a2333f13
-h_time
-
 # ╔═╡ 6edb5b48-b590-492d-bd3e-6a4f549aae30
 begin
-	q_xpos_50,q_ypos_50,q_us_50,q_allx_50,q_ally_50,q_visited_s,q_visited_u,q_time = sample_trajectory_q(s_0,u_0,q_value_50,max_t,env1)
+	q_xpos_50,q_ypos_50,q_us_50,q_allx_50,q_ally_50,q_visited_s,q_visited_u,q_time = sample_trajectory_q(s_0,u_0,q_value_50,max_t,env1,false)
 	#q_xpos_200,q_ypos_200,q_us_200,q_allx_200,q_ally_200 = sample_trajectory_q(s_0,u_0,q_value_200,max_t,env2)
 end;
 
@@ -926,6 +982,12 @@ begin
 	#savefig("locations_histogram.svg")
 end
 
+# ╔═╡ d2b2a47f-b1e6-4ee6-be65-65129c9bb21e
+histogram2d(randn(100),randn(100))
+
+# ╔═╡ 95a47f0c-6859-4b49-b29b-b3f38b3972d8
+h_allx_50
+
 # ╔═╡ b2918c10-ca06-4c1d-91c1-c17e4dd49c9d
 md"### Animations? $(@bind animations CheckBox(default = false))"
 
@@ -967,14 +1029,14 @@ end
 begin
 	if animations == true
 		maxclim = 30000
-		tstep = 10000
+		tstep = 5000
 		maxt = max_t
 		hist_animated = animate_histogram(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,maxclim,tstep,maxt)
 	end
 end
 
 # ╔═╡ cc3af52b-1d47-48b5-bbc4-9ef1327f4dfa
-gif(hist_animated,fps = 10)
+#gif(hist_animated,fps = 5,"histograms_animated.gif")
 
 # ╔═╡ 1ace6a77-cc48-4b3d-8774-035015ffd74a
 function animate_trajectory(h_x_pos,h_y_pos,q_x_pos,q_y_pos,env,tstep = 1,max_t = 500000)
@@ -1012,13 +1074,13 @@ end
 begin
 	if animations == true
 		tstep_traj = 5000
-		maxt_traj = 1000000
+		maxt_traj = max_t
 		traj_animated = animate_trajectory(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,tstep_traj,maxt_traj)
 	end
 end
 
 # ╔═╡ cda6ab20-3dbb-43eb-9ae3-71889cb3da88
-gif(traj_animated,fps = 10)
+#gif(traj_animated,fps = 5,"trajectories.gif")
 
 # ╔═╡ 1483bfe5-150d-40f5-b9dc-9488dcbc88b2
 md"### Histogram of visitation of internal states"
@@ -1069,13 +1131,10 @@ end
 # ╟─73722c01-adee-4bfd-97b4-60f2ced23725
 # ╟─76f506dc-b21d-4e13-a8e8-9d1b3bd21b30
 # ╟─aa5e5bf6-6504-4c01-bb36-df0d7306f9de
-# ╠═10bf144f-760d-4a25-893b-c70f2bff1efd
-# ╠═1b98932a-830e-4738-a75c-22ec3d83cd96
-# ╠═8f42159d-60af-49ea-89f7-f7bf4e3f7e38
 # ╠═ef9e78e2-d61f-4940-9e62-40c6d060353b
 # ╟─a4457d71-27dc-4c93-81ff-f21b2dfed41d
-# ╟─7ad00e90-3431-4e61-9a7f-efbc14d0724e
-# ╟─b072360a-6646-4d6d-90ea-716085c53f66
+# ╠═7ad00e90-3431-4e61-9a7f-efbc14d0724e
+# ╠═b072360a-6646-4d6d-90ea-716085c53f66
 # ╠═a0729563-0b6d-4014-b8c7-9eb284a34606
 # ╠═11b5409c-9db8-4b34-a111-7a62fedd23be
 # ╟─f45ca37a-cba5-41e8-8058-1138e58daf73
@@ -1089,7 +1148,7 @@ end
 # ╠═358bc5ca-c1f6-40f1-ba2d-7e8466531903
 # ╟─40d62df0-53bb-4b46-91b7-78ffd621a519
 # ╟─005720d3-5920-476b-9f96-39971f512452
-# ╟─2379dcc3-53cb-4fb6-b1e8-c851e36acd1f
+# ╠═2379dcc3-53cb-4fb6-b1e8-c851e36acd1f
 # ╟─6e7b6b2a-5489-4860-930e-47b7df014840
 # ╟─2ed5904d-03a3-4999-a949-415d0cf47328
 # ╠═787bbe73-6052-41e0-bc8c-955e4a884886
@@ -1107,21 +1166,25 @@ end
 # ╠═e1b4225e-1801-4be2-ad2d-45125db55251
 # ╠═2457d09b-bd47-472d-b7de-fe04c2f0a2c2
 # ╠═f059814e-6426-40f2-85b9-a6037e802928
-# ╠═097aadd0-b1c3-4553-8b5b-b5427b222c06
-# ╠═80a9971a-fde3-47f8-a7ce-7acb00b4969a
+# ╟─097aadd0-b1c3-4553-8b5b-b5427b222c06
+# ╟─80a9971a-fde3-47f8-a7ce-7acb00b4969a
 # ╠═17ed3317-8481-4d01-ab96-97c8d2b118d7
-# ╠═e12e66a0-979a-4303-b132-12e44b5a31f8
+# ╟─759294e1-65a0-407d-a6c7-e1dfff0c5a77
+# ╟─fa1e2428-7486-40d0-962e-36083992aca4
+# ╠═fa3943d6-eae0-43ac-9055-04fe6e1448a0
+# ╠═86e6a81a-992c-4cc1-a1bb-bac95f9ee6e6
 # ╟─1f3be0d8-d296-4eb0-a951-bd862914ae92
 # ╠═bb45134a-88b1-40d2-a486-c7afe8ac744e
 # ╠═f1d5ee65-10f5-424a-b018-2aff1a5d7ff8
 # ╠═78a5caf6-eced-4783-b950-26563f632be2
-# ╠═bca4b9ce-e267-467f-a906-6830a2333f13
 # ╠═4a868ec2-b636-4d5d-a248-0a4e0cca3668
 # ╠═6edb5b48-b590-492d-bd3e-6a4f549aae30
 # ╟─567f6b5d-c67e-4a43-9699-5625f1cc21a4
 # ╠═9d9801e4-42a9-46b0-ba4e-253b276e5e21
 # ╠═c933c84c-f158-4626-850b-7f5a164ea4aa
 # ╠═e671cb3e-2d1a-4196-9274-89d41ac323c8
+# ╠═d2b2a47f-b1e6-4ee6-be65-65129c9bb21e
+# ╠═95a47f0c-6859-4b49-b29b-b3f38b3972d8
 # ╟─b2918c10-ca06-4c1d-91c1-c17e4dd49c9d
 # ╟─3e8a7dbb-8dfa-44f8-beab-ea32f3d478b4
 # ╠═298d4faf-bca5-49a5-b0e8-9e0b3600e3ae
