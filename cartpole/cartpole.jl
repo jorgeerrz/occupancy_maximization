@@ -387,8 +387,8 @@ function draw_cartpole(xposcar,xs,ys,t,xlimit,ip::inverted_pendulum_borders)
 		arrow_x[i] = aux[i]*mult
 		arrow_y[i] = 0#aux[i][2]*mult*1.3
 	end
-	quiver!(pcar,ones(Int64,length(aux))*xposcar[t][1],ones(Int64,length(aux))*0,quiver = (arrow_x,arrow_y),color = "black",linewidth = 3)
-	scatter!(pcar,xposcar[t],[0],markersize = 10,color = "black")
+	quiver!(pcar,ones(Int64,length(aux))*xposcar[t][1],[0,0.04,0.4,0.04,0.0],quiver = (arrow_x,arrow_y),color = "black",linewidth = 2)
+	scatter!(pcar,xposcar[t],[0.02],markersize = 10,color = "black")
 	plot(pcar, size = (hdim,vdim),margin=4Plots.mm)
 end
 
@@ -415,21 +415,18 @@ function draw_cartpole_time(xposcar,xs,ys,xlimit,maxtime,step,ip::inverted_pendu
 	plot(pcar, size = (hdim,vdim),margin=6Plots.mm)
 end
 
-# ╔═╡ 2b87edae-9584-471a-8ef3-3d13968d9c42
-
-
 # ╔═╡ 10a47fa8-f235-4455-892f-9b1457b1f82c
 function draw_cartpole_timeright(xposcar,xs,ys,maxtime,step,ip::inverted_pendulum_borders)
-	hdim = 1000
-	vdim = 150
+	hdim = 800
+	vdim = 120
 	size = 0.2
-	Δx = 0.005/step
+	Δx = 0.006/step
 	verts = [(-size,-size/2),(size,-size/2),(size,size/2),(-size,size/2)]
 	#Initialize car plot
 	pcar = plot(xticks = false, yticks = false,xlim = (0,maxtime*Δx),ylim = (-0.1, ip.l + 0.05), grid = false, axis = false,legend = false)
 	for t in 1:step:maxtime
 		#Draw pole
-		plot!(pcar,[0,xs[t][2]-xs[t][1]]+[t*Δx,t*Δx],ys[t],marker = (:none, 1),linewidth = 1.5, linecolor = :black,alpha = 0.3)
+		plot!(pcar,[0,xs[t][2]-xs[t][1]]+[t*Δx,t*Δx],ys[t],marker = (:none, 1),linewidth = 1.2, linecolor = :black,alpha = 0.3)
 		#Draw cart
 		plot!(pcar,xposcar[t] +[t*Δx],[0],marker = (Shape(verts),30),alpha = 0.5 ,color = :pink)
 	end
@@ -685,8 +682,8 @@ xs_h_anim[1],ys_h_anim[1]
 
 # ╔═╡ a54788b9-4b1e-4066-b963-d04008bcc242
 begin
-	draw_cartpole_timeright(xposcar_h_anim,xs_h_anim,ys_h_anim,1000,1,ip_b)
-	#savefig("h_frozen_movie2.pdf")
+	draw_cartpole_timeright(xposcar_h_anim,xs_h_anim,ys_h_anim,1200,1,ip_b)
+	savefig("h_frozen_movie2.pdf")
 end
 
 # ╔═╡ 14314bcc-661a-4e84-886d-20c89c07a28e
@@ -813,8 +810,8 @@ draw_cartpole_time(xposcar_q_anim,xs_q_anim,ys_q_anim,ip_b.max_x,200,1,ip_b)
 
 # ╔═╡ 69128c7a-ddcb-4535-98af-24fc91ec0b7e
 begin
-	draw_cartpole_timeright(xposcar_q_anim,xs_q_anim,ys_q_anim,1000,1,ip_b)
-	#savefig("q_frozen_movie2.pdf")
+	draw_cartpole_timeright(xposcar_q_anim,xs_q_anim,ys_q_anim,1200,1,ip_b)
+	savefig("q_frozen_movie2.pdf")
 end
 
 # ╔═╡ c98025f8-f942-498b-9368-5d524b141c62
@@ -836,14 +833,16 @@ md"## ϵ-greedy policy survival rate analysis"
 # ╔═╡ 06f064cf-fc0d-4f65-bd6b-ddb6e4154f6c
 begin
 	max_time = 100000
-	num_episodes = 100
+	num_episodes = 10000
 	ϵs = [0.0,0.001,0.01,0.05] 
+	ϵs_totry = [0.025]
 	#To compute the survival times for various epsilon-greedy Q agents, it takes a long time
-	# survival_pcts = zeros(length(ϵs),num_episodes)
-	# Threads.@threads for i in 1:length(ϵs)
-	# 	for j in 1:num_episodes
+	# survival_pcts = zeros(length(ϵs_totry),num_episodes)
+	# for i in 1:length(ϵs_totry)
+	# 	Threads.@threads for j in 1:num_episodes
+	# 		println("j = ", j)
 	# 		state0 = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
-	# 		xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q = create_episode_q(state0, q_value_int, max_time, ip_q, interpolation, ϵs[i])
+	# 		xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q = create_episode_q(state0, q_value_int, max_time, ip_q, interpolation, ϵs_totry[i])
 	# 		#survival_timesq[j] = length(xposcar_q)
 	# 		#if length(xposcar_q) == max_time
 	# 			survival_pcts[i,j] = length(xposcar_q)
@@ -860,9 +859,29 @@ begin
 	# end
 
 	#Otherwise, read from file
-	survival_Q = readdlm("survival_pcts_epsilon.dat")
+	survival_Q = readdlm("survival_pcts_Q_agent.dat")
 	survival_H = readdlm("survival_pcts_H_agent.dat")
 end;
+
+# ╔═╡ ac43808a-ef2a-472d-9a9e-c77257aaa535
+#writedlm("extra_epsilon.dat",survival_pcts)
+
+# ╔═╡ ce159285-4e30-49e8-83dc-2c77a7aaf80d
+mean(survival_pcts)
+
+# ╔═╡ 3ba3a723-0e93-4a40-b2c9-8159a1b51e06
+a = [[4, 5, 6] [1, 2, 3]]
+
+# ╔═╡ da37a5c8-b8ef-4131-a153-50c21461d9c4
+begin
+	survival_Q_extra = zeros(5,10000)
+	survival_Q_extra[1:3,:] = survival_Q[1:3,:]
+	survival_Q_extra[4,:] = survival_pcts
+	survival_Q_extra[5,:] = survival_Q[4,:]
+end
+
+# ╔═╡ a8b1a61c-6bd0-417b-8d58-8c8f8d77da7e
+#writedlm("survival_pcts_Q_agent.dat",survival_Q_extra)
 
 # ╔═╡ 1a6c956e-38cc-4217-aff3-f303af0282a4
 md"Density plot? $(@bind density CheckBox(default = false))"
@@ -889,6 +908,22 @@ begin
 	plot(surv_hists, grid = true, minorgrid = false, legend_position = :topleft,margin = 4Plots.mm,size = (500,500))
 	#savefig("q_h_survival_histograms.pdf")
 end
+
+# ╔═╡ ae15e079-231e-4ea2-aabb-ee7d44266c6d
+begin
+	surv_means = plot(xlabel = "ϵ")
+	plot!(surv_means,ylabel = "Percentage of survived time steps")
+	plot!(surv_means, ϵs, mean(survival_H./max_time).*ones(length(ϵs)),label = "H agent",linewidth = 2.5, ls = :dash)
+	plot!(surv_means,[0.0,0.001,0.01,0.025,0.05],mean(survival_Q./max_time,dims = 2),yerror = std(survival_Q./max_time,dims = 2)./(sqrt(length(survival_Q[1,:]))),markerstrokewidth = 2, linewidth = 2.5,label = "R agent")
+	plot(surv_means, grid = true, minorgrid = false, legend_position = :best,margin = 2Plots.mm,size = (400,550),bg_legend = :white,fg_legend = :white)
+	#savefig("q_h_survival_epsilon.pdf")
+end
+
+# ╔═╡ 607b3245-53ab-4dca-9c98-8f4b179051e4
+mean(survival_Q,dims = 2)
+
+# ╔═╡ 2b5277cc-011f-4f3f-b860-2bf1dd568d21
+length(survival_Q[1,:])
 
 # ╔═╡ a4b26f44-319d-4b90-8fee-a3ab2418dc47
 md"## State occupancy histograms"
@@ -1075,13 +1110,12 @@ end
 # ╟─b975eaf8-6a94-4e39-983f-b0fb58dd70a1
 # ╟─e0fdce26-41b9-448a-a86a-6b29b68a6782
 # ╟─bbe19356-e00b-4d90-b704-db33e0b75743
-# ╟─b38cdb2b-f570-41f4-8996-c7e41551f374
+# ╠═b38cdb2b-f570-41f4-8996-c7e41551f374
 # ╠═dafbc66b-cbc2-41c9-9a42-da5961d2eaa6
 # ╠═2735cbf5-790d-40b4-ac32-a413bc1d530a
 # ╠═79372251-157d-43a0-9560-4727fbd36ea9
 # ╠═2f1b6992-3082-412d-b966-2b4b278b2ed0
 # ╠═aa4229d3-e221-4a87-8a18-ed376d33d3ac
-# ╠═2b87edae-9584-471a-8ef3-3d13968d9c42
 # ╠═10a47fa8-f235-4455-892f-9b1457b1f82c
 # ╠═5c0f1f4c-9417-4d73-beae-d82c6fb84181
 # ╠═a54788b9-4b1e-4066-b963-d04008bcc242
@@ -1119,8 +1153,16 @@ end
 # ╟─90aff8bb-ed69-40d3-a22f-112f713f4b93
 # ╟─4fad0692-05dc-4c3b-9aae-cd9a43519e51
 # ╠═06f064cf-fc0d-4f65-bd6b-ddb6e4154f6c
+# ╠═ac43808a-ef2a-472d-9a9e-c77257aaa535
+# ╠═ce159285-4e30-49e8-83dc-2c77a7aaf80d
+# ╠═3ba3a723-0e93-4a40-b2c9-8159a1b51e06
+# ╠═da37a5c8-b8ef-4131-a153-50c21461d9c4
+# ╠═a8b1a61c-6bd0-417b-8d58-8c8f8d77da7e
 # ╟─1a6c956e-38cc-4217-aff3-f303af0282a4
 # ╠═e169a987-849f-4cc2-96bc-39f234742d93
+# ╠═ae15e079-231e-4ea2-aabb-ee7d44266c6d
+# ╠═607b3245-53ab-4dca-9c98-8f4b179051e4
+# ╠═2b5277cc-011f-4f3f-b860-2bf1dd568d21
 # ╟─a4b26f44-319d-4b90-8fee-a3ab2418dc47
 # ╠═94da3cc0-6763-40b9-8773-f2a1a2cbe507
 # ╠═69b6d1f1-c46c-43fa-a21d-b1f61fcd7c55

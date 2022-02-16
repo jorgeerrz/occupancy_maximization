@@ -1,5 +1,5 @@
 ### A Pluto.jl notebook ###
-# v0.17.1
+# v0.17.7
 
 using Markdown
 using InteractiveUtils
@@ -256,8 +256,8 @@ function draw_environment(x_pos,y_pos,u,env::environment)
 	quiver!(ptest,ones(Int64,length(aux))*x_pos[1],ones(Int64,length(aux))*y_pos[1],quiver = (arrow_x,arrow_y),color = "black",linewidth = 3)
 	#Draw agent
 	ptest2 = plot(xticks = false,ylim = (0,env.sizeu), grid = false,legend = false)
-	scatter!(ptest, x_pos,y_pos, markersize = 15, leg = false, color = "red")
-	plot(ptest, size = (500,500))
+	scatter!(ptest, x_pos,y_pos, markersize = 15, leg = false, color = "gray",markershape = :uptriangle)
+	plot(ptest, size = (500,500),minorgrid = false)
 	#Draw internal states
 	#bar!(ptest2, u, color = "green")
 	#plot(ptest,ptest2,layout = Plots.grid(1, 2, widths=[0.8,0.2]), title=["" "u(t)"], size = (700,500))
@@ -768,7 +768,7 @@ energies = collect(2:10)
 
 # ╔═╡ 097aadd0-b1c3-4553-8b5b-b5427b222c06
 begin
-	occs = plot(xlabel = "Food gain", ylabel = "% visited locations",size = (350,300))
+	occs = plot(xlabel = "Food gain", ylabel = "% visited locations",size = (350,300),minorgrid = false)
 	plot!(occs,energies,mean(h_s_occ_all,dims = 2),yerror = std(h_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,label = "H agent",lw = 2)
 	plot!(occs,energies,mean(q_s_occ_all,dims = 2),yerror = std(q_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,label = "Q agent",lw = 2)
 	plot!(legend_position = :bottomright,legend = false)
@@ -777,7 +777,7 @@ end
 
 # ╔═╡ 80a9971a-fde3-47f8-a7ce-7acb00b4969a
 begin
-	occs_u = plot(xlabel = "Food gain", ylabel = "% visited energies",size = (350,300))
+	occs_u = plot(xlabel = "Food gain", ylabel = "% visited energies",size = (350,300),minorgrid = false)
 	plot!(occs_u,energies,mean(h_u_occ_all,dims = 2),yerror = std(h_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw = 2,label = "H agent")
 	plot!(occs_u,energies,mean(q_u_occ_all,dims = 2),yerror = std(q_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw = 2,label = "Q agent")
 	plot!(legend_position = :bottomright,legend = false)
@@ -858,9 +858,9 @@ times_randomwalker = occupancies_randomwalker(100,t_episode,pars)
 
 # ╔═╡ 17ed3317-8481-4d01-ab96-97c8d2b118d7
 begin
-	times_plot = plot(xlabel = "Food gain", ylabel = "Steps until full\n location visitation",size = (420,300),margin = 2Plots.mm,legend_position = (0.72,0.92),legend_foreground_color = nothing,legend_background_color = nothing)
+	times_plot = plot(xlabel = "Food gain", ylabel = "Steps until full\n location visitation",size = (420,300),margin = 2Plots.mm,legend_position = (0.72,0.92),legend_foreground_color = nothing,legend_background_color = nothing,minorgrid = false)
 	plot!(times_plot,energies,mean(times_h_all,dims =2),yerror = std(times_h_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "H agent")
-	plot!(times_plot,energies,mean(times_q_all,dims =2),yerror = std(times_q_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "Q agent")
+	plot!(times_plot,energies,mean(times_q_all,dims =2),yerror = std(times_q_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "R agent")
 	plot!(times_plot,energies,mean(times_randomwalker).*ones(length(energies)),lw = 1, linestyle = :dash, color = :black, annotations = (6,mean(times_randomwalker)+1000,Plots.text("Unconstrained random walk","Computer Modern",12)),label = false)
 	plot!(times_plot, yscale = :log, ylim = (1E3,1E6))
 	#savefig("time_gain_rw.pdf")
@@ -893,8 +893,8 @@ end
 
 # ╔═╡ bd16a66c-9c2f-449c-a792-1073c54e990b
 begin
-	draw_environment([3],[3],[u_0],env2)
-	#savefig("arena_fourrooms_side_$(env1.sizex).pdf")
+	draw_environment([3],[3],[u_0],env1)
+	#savefig("arena.pdf")
 end
 
 # ╔═╡ a0729563-0b6d-4014-b8c7-9eb284a34606
@@ -957,7 +957,7 @@ function plot_histogram(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,t_hist = 50
 		histogram2d!(p_h50_hist,h_allx_50[1:t_hist],h_ally_50[1:t_hist], bins = (collect(0.5:1:env1.sizex + 0.5),collect(0.5:1:env1.sizey + 0.5)),normalize = :true,cbar = false,clim = (0,maxclim))
 
 	## Q agent
-	p_q50_hist = plot(ticks = false, title = "Q agent")
+	p_q50_hist = plot(ticks = false, title = "R agent")
 	#Paint the whole arena
 	heatmap!(p_q50_hist,zeros(env1.sizex,env1.sizey))
 	#Draw obstacles
@@ -979,11 +979,8 @@ function plot_histogram(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,t_hist = 50
 # ╔═╡ e671cb3e-2d1a-4196-9274-89d41ac323c8
 begin
 	plot_histogram(h_allx_50,h_ally_50,q_allx_50,q_ally_50,env1,Int(h_time),0.01)
-	#savefig("locations_histogram.svg")
+	#savefig("locations_histogram.png")
 end
-
-# ╔═╡ d2b2a47f-b1e6-4ee6-be65-65129c9bb21e
-histogram2d(randn(100),randn(100))
 
 # ╔═╡ 95a47f0c-6859-4b49-b29b-b3f38b3972d8
 h_allx_50
@@ -1087,10 +1084,10 @@ md"### Histogram of visitation of internal states"
 
 # ╔═╡ d93ef435-c460-40cc-96e7-817e9eaace55
 begin
-	p_us = plot(xlim = (0,50), xlabel = "Internal energy", ylabel = "Probability",legend_foreground_color = nothing, margin = 4Plots.mm, majorgrid = false,size = (400,300))
+	p_us = plot(xlim = (0,50), xlabel = "Internal energy", ylabel = "Probability",legend_foreground_color = nothing, margin = 4Plots.mm, majorgrid = false,size = (400,300),minorgrid = false)
 	bd = 1
 	plot!(p_us,h_us_50, label = "H agent", bandwidth = bd, st = :density,linewidth = 3)
-	plot!(p_us,q_us_50, label = "Q agent", bandwidth = bd, st = :density,linewidth = 3)
+	plot!(p_us,q_us_50, label = "R agent", bandwidth = bd, st = :density,linewidth = 3)
 	# plot!(p_us,h_us_50, label = "H agent", bins = collect(0:1:50), st = :stephist,normalized = :pdf, linewidth = 3)
 	# plot!(p_us,q_us_50, label = "Q agent", bins = collect(0:1:50), st = :stephist,normalized = :pdf, linewidth = 3)
 	#savefig("energies_histogram.pdf")
@@ -1119,7 +1116,7 @@ end
 # ╠═07abd5b7-b465-425b-9823-19b73d07db56
 # ╠═8f2fdc23-1b82-4479-afe7-8eaf3304a122
 # ╠═194ffe45-b7a3-4dd4-a346-9a2334979526
-# ╟─403a06a7-e30f-4aa4-ade1-55dee37cd514
+# ╠═403a06a7-e30f-4aa4-ade1-55dee37cd514
 # ╠═bd16a66c-9c2f-449c-a792-1073c54e990b
 # ╟─ac3a4aa3-1edf-467e-9a47-9f6d6655cd04
 # ╟─c6870051-0241-4cef-9e5b-bc876a3894fa
@@ -1166,8 +1163,8 @@ end
 # ╠═e1b4225e-1801-4be2-ad2d-45125db55251
 # ╠═2457d09b-bd47-472d-b7de-fe04c2f0a2c2
 # ╠═f059814e-6426-40f2-85b9-a6037e802928
-# ╟─097aadd0-b1c3-4553-8b5b-b5427b222c06
-# ╟─80a9971a-fde3-47f8-a7ce-7acb00b4969a
+# ╠═097aadd0-b1c3-4553-8b5b-b5427b222c06
+# ╠═80a9971a-fde3-47f8-a7ce-7acb00b4969a
 # ╠═17ed3317-8481-4d01-ab96-97c8d2b118d7
 # ╟─759294e1-65a0-407d-a6c7-e1dfff0c5a77
 # ╟─fa1e2428-7486-40d0-962e-36083992aca4
@@ -1183,7 +1180,6 @@ end
 # ╠═9d9801e4-42a9-46b0-ba4e-253b276e5e21
 # ╠═c933c84c-f158-4626-850b-7f5a164ea4aa
 # ╠═e671cb3e-2d1a-4196-9274-89d41ac323c8
-# ╠═d2b2a47f-b1e6-4ee6-be65-65129c9bb21e
 # ╠═95a47f0c-6859-4b49-b29b-b3f38b3972d8
 # ╟─b2918c10-ca06-4c1d-91c1-c17e4dd49c9d
 # ╟─3e8a7dbb-8dfa-44f8-beab-ea32f3d478b4

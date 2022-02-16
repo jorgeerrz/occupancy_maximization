@@ -1,0 +1,47 @@
+import numpy as np
+import matplotlib.pyplot as pl
+
+F0=12
+arrg=np.array([0.055,0.055,0.058,0.05,0.03])
+N=7
+miop=0
+beta=2.
+uhas=0
+ln=len(arrg)
+rotco1_av=np.zeros((2,ln))
+rotco2_av=np.zeros((2,ln))
+drotco_std=np.zeros((2,ln))
+arf=np.zeros((ln), int)
+for f in range(ln):
+	F=F0+f
+	arf[f]=F
+	nz=arrg[f]
+	pref="zformedcommonW_mouselab_bottleneck_fulltank "   
+	postf="N"+str(N)+"F"+str(F)+"beta"+str(beta)+"miop"+str(miop)
+	pref1=pref+postf+"nz"+str(0.)+"has"+str(uhas)
+	pref2="dp2_zformedcommonW_mouselab_bottleneck_fulltank "+postf+"nz"+str(nz)
+	file = open("rotco_"+pref1, "rb")
+	rotco1 = np.load(file)
+	print("F ",F,"rotco1",rotco1)
+	file.close
+	file = open("rotco_"+pref2, "rb")
+	rotco2 = np.load(file)
+	file.close
+	rotco1_av[0,f]=np.mean(rotco1[:,0])
+	rotco1_av[1,f]=np.mean(rotco1[:,1])
+	rotco2_av[0,f]=np.mean(rotco2[:,0])
+	rotco2_av[1,f]=np.mean(rotco2[:,1])
+	drotco_std[0,f]=np.std(rotco1[:,0]-rotco2[:,0])
+	drotco_std[1,f]=np.std(rotco1[:,1]-rotco2[:,1])
+drotco1=np.zeros((ln))
+drotco1=rotco1_av[0]-rotco1_av[1]
+drotco2=rotco2_av[0]-rotco2_av[1]
+pl.plot(arf,drotco1, color="black")
+pl.plot(arf,drotco2, color="grey")
+pl.plot(arf,drotco1+drotco_std[0],"--", color="black")
+pl.plot(arf,drotco1-drotco_std[0],"--", color="black")
+pl.plot(arf,drotco2+drotco_std[1],"--", color="grey")
+pl.plot(arf,drotco2-drotco_std[1],"--", color="grey")
+pl.xticks(arf,arf)
+#pl.savefig("drotco_"+"N"+str(N)+"Fstart"+str(F0)+"Flen"+str(ln)+"beta"+str(beta)+"miop"+str(miop))
+pl.show()
