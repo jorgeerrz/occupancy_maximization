@@ -768,7 +768,7 @@ energies = collect(2:10)
 
 # ╔═╡ 097aadd0-b1c3-4553-8b5b-b5427b222c06
 begin
-	occs = plot(xlabel = "Food gain", ylabel = "% visited locations",size = (350,300),minorgrid = false)
+	occs = plot(xlabel = "Food gain", ylabel = "Fraction locations",size = (400,300),minorgrid = false)
 	plot!(occs,energies,mean(h_s_occ_all,dims = 2),yerror = std(h_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,label = "H agent",lw = 2)
 	plot!(occs,energies,mean(q_s_occ_all,dims = 2),yerror = std(q_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,label = "Q agent",lw = 2)
 	plot!(legend_position = :bottomright,legend = false)
@@ -777,7 +777,7 @@ end
 
 # ╔═╡ 80a9971a-fde3-47f8-a7ce-7acb00b4969a
 begin
-	occs_u = plot(xlabel = "Food gain", ylabel = "% visited energies",size = (350,300),minorgrid = false)
+	occs_u = plot(xlabel = "Food gain", ylabel = "Fraction energies",size = (400,300),minorgrid = false)
 	plot!(occs_u,energies,mean(h_u_occ_all,dims = 2),yerror = std(h_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw = 2,label = "H agent")
 	plot!(occs_u,energies,mean(q_u_occ_all,dims = 2),yerror = std(q_s_occ_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw = 2,label = "Q agent")
 	plot!(legend_position = :bottomright,legend = false)
@@ -858,9 +858,9 @@ times_randomwalker = occupancies_randomwalker(100,t_episode,pars)
 
 # ╔═╡ 17ed3317-8481-4d01-ab96-97c8d2b118d7
 begin
-	times_plot = plot(xlabel = "Food gain", ylabel = "Steps until full\n location visitation",size = (420,300),margin = 2Plots.mm,legend_position = (0.72,0.92),legend_foreground_color = nothing,legend_background_color = nothing,minorgrid = false)
-	plot!(times_plot,energies,mean(times_h_all,dims =2),yerror = std(times_h_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "H agent")
-	plot!(times_plot,energies,mean(times_q_all,dims =2),yerror = std(times_q_all,dims = 2)/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "R agent")
+	times_plot = plot(xlabel = "Food gain", ylabel = "Steps until full\n location visitation",size = (400,300),margin = 2Plots.mm,legend_position = (0.72,0.92),legend_foreground_color = nothing,legend_background_color = nothing,minorgrid = false)
+	plot!(times_plot,energies[2:end],mean(times_h_all,dims =2)[2:end],yerror = std(times_h_all,dims = 2)[2:end]/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "H agent")
+	plot!(times_plot,energies[5:end],mean(times_q_all,dims =2)[5:end],yerror = std(times_q_all,dims = 2)[5:end]/sqrt(n_episodes),markerstrokewidth = 2,lw=2,label = "R agent")
 	plot!(times_plot,energies,mean(times_randomwalker).*ones(length(energies)),lw = 1, linestyle = :dash, color = :black, annotations = (6,mean(times_randomwalker)+1000,Plots.text("Unconstrained random walk","Computer Modern",12)),label = false)
 	plot!(times_plot, yscale = :log, ylim = (1E3,1E6))
 	#savefig("time_gain_rw.pdf")
@@ -1101,7 +1101,7 @@ end
 # ╠═393eaf2d-e8fe-4675-a7e6-32d0fe9ac4e7
 # ╠═b4e7b585-261c-4044-87cc-cbf669768145
 # ╟─7feeec1a-7d7b-4220-917d-049f1e9b101b
-# ╟─7e68e560-45d8-4429-8bff-3a8229c8c84e
+# ╠═7e68e560-45d8-4429-8bff-3a8229c8c84e
 # ╟─194e91cb-b619-4908-aebd-3136107175b7
 # ╟─a46ced5b-2e58-40b2-8eb6-b4840043c055
 # ╟─9404080e-a52c-42f7-9abd-ea488bf7abc2
@@ -1119,7 +1119,7 @@ end
 # ╠═403a06a7-e30f-4aa4-ade1-55dee37cd514
 # ╠═bd16a66c-9c2f-449c-a792-1073c54e990b
 # ╟─ac3a4aa3-1edf-467e-9a47-9f6d6655cd04
-# ╟─c6870051-0241-4cef-9e5b-bc876a3894fa
+# ╠═c6870051-0241-4cef-9e5b-bc876a3894fa
 # ╟─d88e0e27-2354-43ad-9c26-cdc90beeea0f
 # ╟─184636e2-c87d-4a89-b231-ff4aef8424d5
 # ╠═82fbe5a0-34a5-44c7-bdcb-36d16f09ea7b
