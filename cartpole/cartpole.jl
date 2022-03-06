@@ -30,11 +30,8 @@ begin
 	PlutoUI.TableOfContents(aside = true)
 end
 
-# ╔═╡ 4889e96d-deaf-432e-b055-d9e3ef8ca29c
-default(titlefont = ("Computer Modern",16), legend_font_family = "Computer Modern", legend_font_pointsize = 14, guidefont = ("Computer Modern", 16), tickfont = ("Computer Modern", 14))
-
 # ╔═╡ 0a29d50e-df0a-4f54-b588-faa6aee2e983
-theme(:vibrant)
+theme(:vibrant,titlefont = ("Computer Modern",16), legend_font_family = "Computer Modern", legend_font_pointsize = 14, guidefont = ("Computer Modern", 16), tickfont = ("Computer Modern", 14),foreground_color_border = :black)
 
 # ╔═╡ 379318a2-ea2a-4ac1-9046-0fdfe8c102d4
 interpolation = true
@@ -258,7 +255,7 @@ function degeneracy_cost(state,env::inverted_pendulum_borders,δ = 1E-5)
 end
 
 # ╔═╡ ce8bf897-f240-44d8-ae39-cf24eb115704
-function iteration(env::inverted_pendulum_borders, tolerance = 1E0, n_iter = 100)
+function iteration(env::inverted_pendulum_borders, tolerance = 1E0, n_iter = 100;δ = 1E-5)
 	v = zeros(env.nstates)
 	v_new = zeros(env.nstates)
 	t_stop = n_iter
@@ -276,7 +273,7 @@ function iteration(env::inverted_pendulum_borders, tolerance = 1E0, n_iter = 100
 				sum = 0
 				# Add negligible external reward that breaks degeneracy for 
 				# Q agent
-				small_reward = degeneracy_cost(state,env)
+				small_reward = degeneracy_cost(state,env,δ)
 				for (id_a,a) in enumerate(actions)
 					#For every action, look at reachable states
 					s_primes_ids,states_p = reachable_states_b(state,a,env)
@@ -357,7 +354,7 @@ function interpolate_value(flat_value,env::inverted_pendulum_borders)
 end
 
 # ╔═╡ bbe19356-e00b-4d90-b704-db33e0b75743
-ip_b = inverted_pendulum_borders(M = 1, m = 0.1,l = 1.,Δt = 0.02, sizeθ = 41, sizew = 41,sizev = 41, sizex = 41, max_θ = 0.62, max_w = 3, a_s = [-50,-10,0,10,50], max_x = 2.4, max_v = 3, nactions = 5, γ = 0.96)
+ip_b = inverted_pendulum_borders(M = 1, m = 0.1,l = 1.,Δt = 0.02, sizeθ = 31, sizew = 31,sizev = 31, sizex = 31, max_θ = 0.62, max_w = 3, a_s = [-50,-10,0,10,50], max_x = 2.4, max_v = 3, nactions = 5, γ = 0.96)
 
 # ╔═╡ b38cdb2b-f570-41f4-8996-c7e41551f374
 function draw_cartpole(xposcar,xs,ys,t,xlimit,ip::inverted_pendulum_borders)
@@ -558,8 +555,8 @@ function reachable_rewards(state,action,env::inverted_pendulum_borders,δ = 1E-5
 end
 
 # ╔═╡ e181540d-4334-47c4-b35d-99023c89a2c8
-function Q_iteration(env::inverted_pendulum_borders, tolerance = 1E-2, n_iter = 100)
-	v = -ones(env.nstates)
+function Q_iteration(env::inverted_pendulum_borders, ϵ = 0.01, tolerance = 1E-2, n_iter = 100; δ = 1E-5)
+	v = zeros(env.nstates)
 	v_new = zeros(env.nstates)
 	t_stop = n_iter
 	error = 0
@@ -579,7 +576,7 @@ function Q_iteration(env::inverted_pendulum_borders, tolerance = 1E-2, n_iter = 
 				values = zeros(length(actions))
 				for (id_a,a) in enumerate(actions)
 					s_primes_ids,states_p = reachable_states_b(state,a,env)
-					rewards = reachable_rewards(state,a,env)
+					rewards = reachable_rewards(state,a,env,δ)
 					#state_p = transition_b(state,a,env)[2]
 					for (idx,s_p) in enumerate(s_primes_ids)
 						#rewards = reachable_rewards(states_p[idx],a,env)
@@ -590,9 +587,8 @@ function Q_iteration(env::inverted_pendulum_borders, tolerance = 1E-2, n_iter = 
 						end
 					end
 				end
-				v_new[i] = maximum(values)
-				#v[i] = maximum(values)
-				#println("v after = ", v[i], ", v_old = ", v_old)
+				#ϵ-greedy action selection
+				v_new[i] = (1-ϵ)*maximum(values) + (ϵ/length(actions))*sum(values)
 				ferror = abs(v[i] - v_new[i])
 				#ferror = abs(v[i] - v_old)
 				ferror_old = max(ferror_old,ferror)
@@ -611,9 +607,10 @@ function Q_iteration(env::inverted_pendulum_borders, tolerance = 1E-2, n_iter = 
 end
 
 # ╔═╡ 31a1cdc7-2491-42c1-9988-63650dfaa3e3
-function optimal_policy_q(dstate,state,value,env::inverted_pendulum_borders,interpolation = true)
+function optimal_policy_q(dstate,state,value,ϵ,env::inverted_pendulum_borders,interpolation = true)
 	actions,ids_actions = adm_actions_b(dstate,env)
 	values = zeros(length(actions))
+	policy = zeros(length(actions))
 	#print("actions = ", actions)
 	#state_index = build_nonflat_index_b(state,env)
 	#id_state = build_index_b(state_index,env)
@@ -639,19 +636,31 @@ function optimal_policy_q(dstate,state,value,env::inverted_pendulum_borders,inte
 	#println("sum policy = ", sum(policy))
 	#println("values = ", values)
 	best_actions = findall(i-> i == maximum(values),values)
-	actions[best_actions],length(best_actions)
+	#ϵ-greedy policy
+	for i in 1:length(actions)
+		if i in best_actions
+			#There might be more than one optimal action
+			policy[i] = (1-ϵ)/length(best_actions) + ϵ/length(actions)
+		else
+			#Choose random action with probability ϵ
+			policy[i] = ϵ/length(actions)
+		end
+	end
+	actions,policy,length(best_actions)
 end
 
 # ╔═╡ 87c0c3cb-7059-42ae-aed8-98a0ef2eb55f
-ip_q = inverted_pendulum_borders(M = 1.0, m = 0.1,l = 1.,Δt = 0.02, sizeθ = 41, sizew = 41,sizev = 41, sizex = 41, a_s = [-50,-10,0,10,50], max_θ = 0.62, max_x = 2.4, max_v = 3, max_w = 3, nactions = 5, γ = 0.96)
+ip_q = inverted_pendulum_borders(M = 1.0, m = 0.1,l = 1.,Δt = 0.02, sizeθ = 31, sizew = 31,sizev = 31, sizex = 31, a_s = [-50,-10,0,10,50], max_θ = 0.62, max_x = 2.4, max_v = 3, max_w = 3, nactions = 5, γ = 0.96)
 
 # ╔═╡ 7c04e2c3-4157-446d-a065-4bfe7d1931fd
-#To calculate value, uncomment, it takes around 30 minutes for 1.8E6 states
-#h_value,error,t_stop= iteration(ip_b,tolb,1000)
-#Read from compressed file
 begin
-	h_zip = ZipFile.Reader("h_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat.zip")
-	h_value = readdlm(h_zip.files[1], Float64)
+#To calculate value, uncomment, it takes around 30 minutes for 1.8E6 states
+#h_value,error,t_stop= iteration(ip_b,tolb,1200,δ = 1E-5)
+#writedlm("h_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat",h_value)
+#Read from compressed file
+	# h_zip = ZipFile.Reader("h_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat.zip")
+	# h_value = readdlm(h_zip.files[1], Float64)
+	h_value = readdlm("h_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat")
 end
 
 # ╔═╡ 8a59e209-9bb6-4066-b6ca-70dac7da33c3
@@ -659,7 +668,7 @@ h_value_int = interpolate_value(h_value,ip_b);
 
 # ╔═╡ 9230de54-3ee3-4242-bc34-25a38edfbb6b
 begin
-	max_t_h_anim = 10000
+	max_t_h_anim = 1000
 	#state0_h_anim = State(θ = 0.001, u = 2)
 	xs_h_anim, ys_h_anim, xposcar_h_anim, thetas_ep_h_anim, ws_ep_h_anim, us_ep_h_anim, vs_ep_h_anim, actions_h_anim, values_h_anim, entropies_h_anim = create_episode_b(state_0_anim,h_value_int,max_t_h_anim, ip_b)
 	length(xposcar_h_anim)
@@ -677,13 +686,10 @@ end
 # ╔═╡ 2f1b6992-3082-412d-b966-2b4b278b2ed0
 draw_cartpole_time(xposcar_h_anim,xs_h_anim,ys_h_anim,ip_b.max_x,200,1,ip_b)
 
-# ╔═╡ 5c0f1f4c-9417-4d73-beae-d82c6fb84181
-xs_h_anim[1],ys_h_anim[1]
-
 # ╔═╡ a54788b9-4b1e-4066-b963-d04008bcc242
 begin
-	draw_cartpole_timeright(xposcar_h_anim,xs_h_anim,ys_h_anim,1200,1,ip_b)
-	savefig("h_frozen_movie2.pdf")
+	draw_cartpole_timeright(xposcar_h_anim,xs_h_anim,ys_h_anim,1000,1,ip_b)
+	#savefig("h_frozen_movie2.pdf")
 end
 
 # ╔═╡ 14314bcc-661a-4e84-886d-20c89c07a28e
@@ -703,16 +709,16 @@ md" ## Value iteration"
 # ╔═╡ 355db008-9661-4e54-acd5-7c2c9ba3c7f5
 tol = 1E-3
 
-# ╔═╡ 0dca50da-4b07-4401-8089-06c91f339e61
-#To calculate value, uncomment, it takes around 30 minutes for 1.8E6 states
-#q_value, q_error, q_stop = Q_iteration(ip_q,tol,1200)
-#Otherwise, read from file
-
 # ╔═╡ 564cbc7a-3125-4b67-843c-f4c74ccef51f
-#Read from compressed file
 begin
-	q_zip = ZipFile.Reader("q_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat.zip")
-	q_value = readdlm(q_zip.files[1], Float64)
+#To calculate value, uncomment, it takes around 30 minutes for 1.8E6 states
+	# ϵ_try = 0.5
+	# q_value, q_error, q_stop = Q_iteration(ip_q,ϵ_try,tol,1200,δ = 1E-3)
+#Otherwise, read from file
+#Read from compressed file
+	#q_zip = ZipFile.Reader("q_value_g_$(ip_q.γ)_nstates_$(ip_q.nstates).dat.zip")
+	#q_value = readdlm(q_zip.files[1], Float64)
+	q_value = readdlm("q_value_eps_0.25_nstates_$(ip_q.nstates).dat")
 end
 
 # ╔═╡ d20c1afe-6d5b-49bf-a0f2-a1bbb21c709f
@@ -723,7 +729,7 @@ end
 q_value_int = interpolate_value(q_value,ip_q);
 
 # ╔═╡ e9a01524-90b1-4249-a51c-ec8d1624be5b
-function create_episode_q(state_0,value,max_t,env::inverted_pendulum_borders,interpolation = true,ϵ = 0.0)
+function create_episode_q(state_0,value,ϵ,max_t,env::inverted_pendulum_borders,interpolation = true)
 	x = 0.
 	v = 0.
 	xpositions = Any[]
@@ -742,7 +748,16 @@ function create_episode_q(state_0,value,max_t,env::inverted_pendulum_borders,int
 	all_y = Any[]
 	state = deepcopy(state_0)
 	for t in 1:max_t
-		actions_at_s,_ = adm_actions_b(state,env)
+		thetax_new = state.x - env.l*sin(state.θ)
+		thetay_new = env.l*cos(state.θ)
+		push!(xpositions,[state.x,thetax_new])
+		push!(ypositions,[0,thetay_new])
+		push!(xposcar,[state.x])
+		push!(thetas,state.θ)
+		push!(ws,state.w)
+		push!(vs,state.v)
+		push!(us,state.u)
+		#actions_at_s,_ = adm_actions_b(state,env)
 		# policy = ones(length(actions))./length(actions)
 		ids_dstate,discretized_state = discretize_state(state,env)
 		id_dstate = build_index_b(ids_dstate,env)
@@ -751,13 +766,15 @@ function create_episode_q(state_0,value,max_t,env::inverted_pendulum_borders,int
 		else
 			push!(values,value[id_dstate])
 		end
-		actions,n_best_actions = optimal_policy_q(discretized_state,state,value,env,interpolation)
+		actions_at_s,policy,n_best_actions = optimal_policy_q(discretized_state,state,value,ϵ,env,interpolation)
 		#Choosing action randomly from optimal action set according to policy
-		action = rand(actions)
+		#action = rand(actions)
 		#ϵ-greedy: with prob ϵ choose a random action from action set
-		if rand() < ϵ
-			action = rand(actions_at_s)
-		end
+		# if rand() < ϵ
+		# 	action = rand(actions_at_s)
+		# end
+		idx = rand(Categorical(policy))
+		action = actions_at_s[idx]
 		#There might be degeneracy in optimal action, so choose with (1-ϵ)
 		prob_distribution = ones(n_best_actions).*((1-ϵ)/n_best_actions)
 		#Then, choose with ϵ between available actions
@@ -771,15 +788,7 @@ function create_episode_q(state_0,value,max_t,env::inverted_pendulum_borders,int
 		push!(a_s,action)
 		r = reachable_rewards(state,action,env)[1]
 		push!(rewards,r)
-		thetax_new = state.x - env.l*sin(state.θ)
-		thetay_new = env.l*cos(state.θ)
-		push!(xpositions,[state.x,thetax_new])
-		push!(ypositions,[0,thetay_new])
-		push!(xposcar,[state.x])
-		push!(thetas,state.θ)
-		push!(ws,state.w)
-		push!(vs,state.v)
-		push!(us,state.u)
+
 		#For discretized dynamics
 		#_,state_p = transition_b(state,action,env) 
 		#For real dynamics
@@ -793,15 +802,27 @@ function create_episode_q(state_0,value,max_t,env::inverted_pendulum_borders,int
 	xpositions,ypositions,xposcar,thetas,ws,us,vs,a_s,values,entropies,rewards
 end
 
+# ╔═╡ 85092f44-1db7-4e29-ab56-12ef1985d90e
+q_value_int(0.0,0.4,2,0.0,0.0)
+
 # ╔═╡ 4893bf14-446c-46a7-b695-53bac123ff99
 md" ## Animation"
 
+# ╔═╡ 90aff8bb-ed69-40d3-a22f-112f713f4b93
+md"# Comparison between H and Q agents"
+
+# ╔═╡ 4fad0692-05dc-4c3b-9aae-cd9a43519e51
+md"## ϵ-greedy policy survival rate analysis"
+
+# ╔═╡ 973b56e5-ef3c-4328-ad26-3ab63650537e
+ϵs_totry = [0.0,0.05,0.1,0.15,0.2]
+
 # ╔═╡ 7edf8ddf-2b6e-4a4b-8181-6b8bbdd22841
 begin
-	max_t_q_anim = 10000
-	#state0_q_anim = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
-	ϵ_anim = 0.0
-	xs_q_anim, ys_q_anim, xposcar_q_anim, thetas_ep_q_anim, ws_ep_q_anim, us_ep_q_anim, vs_ep_q_anim, actions_q_anim, values_q_anim, entropies_q_anim,rewards_q_anim = create_episode_q(state_0_anim,q_value_int,max_t_q_anim, ip_q, interpolation,ϵ_anim)
+	max_t_q_anim = 1000
+	state0_q_anim = State(θ = 0,x = 0, v = 0,w = 0, u = 2) #state_0_anim
+	ϵ_anim = ϵs_totry[2]
+	xs_q_anim, ys_q_anim, xposcar_q_anim, thetas_ep_q_anim, ws_ep_q_anim, us_ep_q_anim, vs_ep_q_anim, actions_q_anim, values_q_anim, entropies_q_anim,rewards_q_anim = create_episode_q(state0_q_anim,q_value_int,ϵ_anim,max_t_q_anim, ip_q, interpolation)
 	length(xposcar_q_anim)
 end
 
@@ -810,8 +831,8 @@ draw_cartpole_time(xposcar_q_anim,xs_q_anim,ys_q_anim,ip_b.max_x,200,1,ip_b)
 
 # ╔═╡ 69128c7a-ddcb-4535-98af-24fc91ec0b7e
 begin
-	draw_cartpole_timeright(xposcar_q_anim,xs_q_anim,ys_q_anim,1200,1,ip_b)
-	savefig("q_frozen_movie2.pdf")
+	draw_cartpole_timeright(xposcar_q_anim,xs_q_anim,ys_q_anim,1000,1,ip_b)
+	#savefig("q_frozen_movie2.pdf")
 end
 
 # ╔═╡ c98025f8-f942-498b-9368-5d524b141c62
@@ -824,32 +845,39 @@ if movies == true
 gif(anim_q,fps = Int(round(1/ip_q.Δt)),"episode_q_agent_epsilon_$(ϵ_anim)_g_$(ip_q.γ)_wvalues.gif")
 end
 
-# ╔═╡ 90aff8bb-ed69-40d3-a22f-112f713f4b93
-md"# Comparison between H and Q agents"
-
-# ╔═╡ 4fad0692-05dc-4c3b-9aae-cd9a43519e51
-md"## ϵ-greedy policy survival rate analysis"
+# ╔═╡ 3d567640-78d6-4f76-b13e-95be6d5e9c64
+begin
+	#Calculate q values for several ϵs
+	ϵs_to_compute_value = [0.25,0.3,0.35,0.4]
+	for (i,ϵ) in enumerate(ϵs_to_compute_value)
+		println("epsilon = ", ϵ)
+		q_val, _, _ = Q_iteration(ip_q,ϵ,tol,1200,δ = 1E-5)
+		writedlm("q_value_eps_$(ϵ)_nstates_$(ip_q.nstates).dat",q_val)
+	end
+end
 
 # ╔═╡ 06f064cf-fc0d-4f65-bd6b-ddb6e4154f6c
 begin
-	max_time = 100000
-	num_episodes = 10000
-	ϵs = [0.0,0.001,0.01,0.05] 
-	ϵs_totry = [0.025]
+	max_time = 10000
+	num_episodes = 1000
+	ϵs = [0.0,0.05,0.1,0.15,0.2,0.25,0.3,0.35,0.4] #ϵs_totry# [0.0,0.001,0.01,0.05] 
 	#To compute the survival times for various epsilon-greedy Q agents, it takes a long time
-	# survival_pcts = zeros(length(ϵs_totry),num_episodes)
-	# for i in 1:length(ϵs_totry)
+	# survival_pcts = zeros(length(ϵs),num_episodes)
+	# for (i,ϵ) in enumerate(ϵs)
+	# 	q_val = readdlm("q_value_eps_$(ϵ)_nstates_$(ip_q.nstates).dat")
+	# 	q_val_int = interpolate_value(q_val,ip_q)
 	# 	Threads.@threads for j in 1:num_episodes
 	# 		println("j = ", j)
 	# 		state0 = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
-	# 		xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q = create_episode_q(state0, q_value_int, max_time, ip_q, interpolation, ϵs_totry[i])
+	# 		xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q = create_episode_q(state0, q_val_int, ϵ, max_time, ip_q, interpolation)
 	# 		#survival_timesq[j] = length(xposcar_q)
 	# 		#if length(xposcar_q) == max_time
 	# 			survival_pcts[i,j] = length(xposcar_q)
 	# 		#end
 	# 	end
 	# end
-
+	#writedlm("survival_pcts_Q_epsilon_short.dat",survival_pcts)
+	
 	#Computes it for H agent
 	# survival_times = zeros(num_episodes)
 	# Threads.@threads for i in 1:num_episodes
@@ -859,26 +887,37 @@ begin
 	# end
 
 	#Otherwise, read from file
-	survival_Q = readdlm("survival_pcts_Q_agent.dat")
-	survival_H = readdlm("survival_pcts_H_agent.dat")
+	survival_pcts = readdlm("survival_pcts_Q_epsilon_short.dat")
+	survival_H = readdlm("survival_pcts_H.dat")
 end;
 
+# ╔═╡ e2f1952d-8fc8-4749-9a88-bf5c61758e14
+#writedlm("survival_pcts_Q_epsilon_short.dat",survival_pcts)
+
+# ╔═╡ 2bd1d018-986b-4370-95ba-e047e2c7b691
+# begin
+# 		#Computes it for H agent
+# 		survival_times_H = zeros(num_episodes)
+# 		Threads.@threads for i in 1:num_episodes
+# 			state0_b = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval), u = 2)
+# 			xs_b, ys_b, xposcar_b, thetas_ep_b, ws_ep_b, us_ep_b, vs_ep_b, actions_b = create_episode_b(state0_b,h_value_int,max_time, ip_b)
+# 			survival_times_H[i] = length(xposcar_b)
+# 		end
+# end
+
+# ╔═╡ 489c807d-2db1-4d9e-9e30-cab403b9281f
+#writedlm("survival_pcts_H.dat",survival_times_H)
+
 # ╔═╡ ac43808a-ef2a-472d-9a9e-c77257aaa535
-#writedlm("extra_epsilon.dat",survival_pcts)
-
-# ╔═╡ ce159285-4e30-49e8-83dc-2c77a7aaf80d
-mean(survival_pcts)
-
-# ╔═╡ 3ba3a723-0e93-4a40-b2c9-8159a1b51e06
-a = [[4, 5, 6] [1, 2, 3]]
+survival_Q = survival_pcts
 
 # ╔═╡ da37a5c8-b8ef-4131-a153-50c21461d9c4
-begin
-	survival_Q_extra = zeros(5,10000)
-	survival_Q_extra[1:3,:] = survival_Q[1:3,:]
-	survival_Q_extra[4,:] = survival_pcts
-	survival_Q_extra[5,:] = survival_Q[4,:]
-end
+# begin
+# 	survival_Q_extra = zeros(5,10000)
+# 	survival_Q_extra[1:3,:] = survival_Q[1:3,:]
+# 	survival_Q_extra[4,:] = survival_pcts
+# 	survival_Q_extra[5,:] = survival_Q[4,:]
+# end
 
 # ╔═╡ a8b1a61c-6bd0-417b-8d58-8c8f8d77da7e
 #writedlm("survival_pcts_Q_agent.dat",survival_Q_extra)
@@ -888,16 +927,16 @@ md"Density plot? $(@bind density CheckBox(default = false))"
 
 # ╔═╡ e169a987-849f-4cc2-96bc-39f234742d93
 begin
-	bd = 4000
+	bd = 2000
 	surv_hists = plot(xlabel = "Survived time steps", xticks = [10000,50000,100000])
 	if density == true
 		plot!(surv_hists,ylabel = "Density")
-		density!(surv_hists, bandwidth = bd, survival_H,label = "H agent",linewidth = 2)
+		density!(surv_hists, bandwidth = bd, survival__H,label = "H agent",linewidth = 2)
 	else
 		plot!(surv_hists,ylabel = "Normalized frequency")
-		plot!(surv_hists,bins = collect(-bd/2:bd:max_time+bd/2),survival_H,st = :stephist, label = "H agent", alpha = 1.0,linewidth = 2,normalized = :probability)
+		plot!(surv_hists,bins = collect(-bd/2:bd:max_time+bd/2),survival__H,st = :stephist, label = "H agent", alpha = 1.0,linewidth = 2,normalized = :probability)
 	end
-	alphas = [1.0,1.0,1.0,1.0]
+	alphas = ones(length(ϵs))
 	for i in 1:length(ϵs)
 		if density == true
 			density!(surv_hists, bandwidth = bd, survival_Q[i,:],label = "ϵ = $(ϵs[i])",linewidth = 2)
@@ -905,7 +944,7 @@ begin
 			plot!(surv_hists,bins = (collect(-bd/2:bd:max_time+bd/2)),survival_Q[i,:],st = :stephist,normalized = :probability,label = "ϵ = $(ϵs[i])",alpha = alphas[i],linewidth = 2)
 		end
 	end
-	plot(surv_hists, grid = true, minorgrid = false, legend_position = :topleft,margin = 4Plots.mm,size = (500,500))
+	plot(surv_hists, grid = true, minorgrid = false, legend_position = :top,margin = 4Plots.mm,size = (500,500))
 	#savefig("q_h_survival_histograms.pdf")
 end
 
@@ -914,9 +953,9 @@ begin
 	surv_means = plot(xlabel = "ϵ")
 	plot!(surv_means,ylabel = "Percentage of survived time steps")
 	plot!(surv_means, ϵs, mean(survival_H./max_time).*ones(length(ϵs)),label = "H agent",linewidth = 2.5, ls = :dash)
-	plot!(surv_means,[0.0,0.001,0.01,0.025,0.05],mean(survival_Q./max_time,dims = 2),yerror = std(survival_Q./max_time,dims = 2)./(sqrt(length(survival_Q[1,:]))),markerstrokewidth = 2, linewidth = 2.5,label = "R agent")
-	plot(surv_means, grid = true, minorgrid = false, legend_position = :best,margin = 2Plots.mm,size = (400,550),bg_legend = :white,fg_legend = :white)
-	#savefig("q_h_survival_epsilon.pdf")
+	plot!(surv_means,ϵs,mean(survival_Q./max_time,dims = 2),yerror = std(survival_Q./max_time,dims = 2)./(sqrt(length(survival_Q[1,:]))),markerstrokewidth = 2, linewidth = 2.5,label = "R agent")
+	plot(surv_means, grid = true, minorgrid = true, legend_position = :best,margin = 2Plots.mm,size = (400,550),bg_legend = :white,fg_legend = :white, fgborder = :red,fgguide = :black)
+	#savefig("q_h_survival_epsilon_greedy.pdf")
 end
 
 # ╔═╡ 607b3245-53ab-4dca-9c98-8f4b179051e4
@@ -932,12 +971,11 @@ md"## State occupancy histograms"
 state_0_comp = State(θ = rand(interval),x = rand(interval), v = rand(interval),w = rand(interval),u=2)
 
 # ╔═╡ 69b6d1f1-c46c-43fa-a21d-b1f61fcd7c55
-time_histograms = 200000
+time_histograms = 30000
 
 # ╔═╡ 7a27d480-a9cb-4c26-91cd-bf519e8b35fa
 begin
 	max_t_b = time_histograms
-	θ_0 = 0.5*pi/180
 	state0_b = state_0_comp
 	xs_b, ys_b, xposcar_b, thetas_ep_b, ws_ep_b, us_ep_b, vs_ep_b, actions_b, values_b, entropies_b = create_episode_b(state0_b,h_value_int,max_t_b, ip_b)
 	#Check if it survived the whole episode
@@ -948,8 +986,10 @@ end
 begin
 	max_t_q = time_histograms
 	state0_q = state_0_comp
-	ϵ = 0.001
-	xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q, values_q, entropies_q,rewards_q = create_episode_q(state0_q,q_value_int,max_t_q, ip_q, interpolation,ϵ)
+	ϵ = 0.0
+	q_value_hist = readdlm("q_value_eps_$(ϵ)_nstates_$(ip_q.nstates).dat")
+	q_value_int_hist = interpolate_value(q_value_hist,ip_q)
+	xs_q, ys_q, xposcar_q, thetas_ep_q, ws_ep_q, us_ep_q, vs_ep_q, actions_q, values_q, entropies_q,rewards_q = create_episode_q(state0_q,q_value_int_hist,ϵ,max_t_q, ip_q, interpolation)
 	#Check if it survived the whole episode
 	length(xposcar_q)
 end
@@ -975,7 +1015,7 @@ begin
 	p2h = plot(ylim = (-36,36),xlim=(-1.5,1.5),xlabel = "Position", title = "R agent")
 	plot!(p2h,x_q,thetas_ep_q.*180/pi,bins = (40,40),st = :histogram2d,normed = :probability,clim = (0,cbarlim))
 	plot(p1h,p2h,size = (900,400),layout = Plots.grid(1, 2, widths=[0.44,0.56]),margin = 5Plots.mm)
-	#savefig("angle_position_histogram.svg")
+	#savefig("angle_position_histogram_eps_$(ϵ).png")
 end
 
 # ╔═╡ d2139819-83a1-4e2b-a605-91d1e686b9a3
@@ -1087,37 +1127,35 @@ end
 # ╔═╡ Cell order:
 # ╠═63a9f3aa-31a8-11ec-3238-4f818ccf6b6c
 # ╠═11f37e01-7958-4e79-a8bb-06b92d7cb9ed
-# ╠═4889e96d-deaf-432e-b055-d9e3ef8ca29c
 # ╠═0a29d50e-df0a-4f54-b588-faa6aee2e983
 # ╠═18382e9c-e812-49ff-84cc-faad709bc4c3
 # ╠═379318a2-ea2a-4ac1-9046-0fdfe8c102d4
 # ╟─40ee8d98-cc45-401e-bd9d-f9002bc4beba
 # ╠═4ec0dd6d-9d3d-4d30-8a19-bc91600d9ec2
 # ╟─f997fa16-69e9-4df8-bed9-7067e1a5537d
-# ╠═2f31b286-11aa-443e-a3dc-c021e6fc276c
-# ╠═4263babb-32ae-446f-b6a6-9d5451ed40cd
+# ╟─2f31b286-11aa-443e-a3dc-c021e6fc276c
+# ╟─4263babb-32ae-446f-b6a6-9d5451ed40cd
 # ╟─b1d3fff1-d980-4cc8-99c3-d3db7a71bf60
 # ╟─9396a0d1-6036-44ec-98b7-16df4d150b54
 # ╟─cfdf3a8e-a377-43ef-8a76-63cf78ce6a16
 # ╟─ffe32878-8732-46d5-b57c-9e9bb8e6dd74
 # ╟─784178c3-4afc-4c65-93e1-4265e1faf817
 # ╟─fa56d939-09d5-4b63-965a-38016c957fbb
-# ╠═05b8a93c-cefe-473a-9f8e-3e82de0861b2
+# ╟─05b8a93c-cefe-473a-9f8e-3e82de0861b2
 # ╟─f92e8c6d-bf65-4786-8782-f38847a7fb7a
 # ╠═f9121267-8d7e-40b1-b9cc-c8da3f45cdb8
 # ╟─36601cad-1ba9-48f2-8463-a58f98bedd34
 # ╠═ce8bf897-f240-44d8-ae39-cf24eb115704
-# ╠═b975eaf8-6a94-4e39-983f-b0fb58dd70a1
+# ╟─b975eaf8-6a94-4e39-983f-b0fb58dd70a1
 # ╠═e0fdce26-41b9-448a-a86a-6b29b68a6782
-# ╟─bbe19356-e00b-4d90-b704-db33e0b75743
+# ╠═bbe19356-e00b-4d90-b704-db33e0b75743
 # ╠═b38cdb2b-f570-41f4-8996-c7e41551f374
 # ╠═dafbc66b-cbc2-41c9-9a42-da5961d2eaa6
 # ╠═2735cbf5-790d-40b4-ac32-a413bc1d530a
-# ╠═79372251-157d-43a0-9560-4727fbd36ea9
+# ╟─79372251-157d-43a0-9560-4727fbd36ea9
 # ╠═2f1b6992-3082-412d-b966-2b4b278b2ed0
 # ╠═aa4229d3-e221-4a87-8a18-ed376d33d3ac
 # ╠═10a47fa8-f235-4455-892f-9b1457b1f82c
-# ╠═5c0f1f4c-9417-4d73-beae-d82c6fb84181
 # ╠═a54788b9-4b1e-4066-b963-d04008bcc242
 # ╠═69128c7a-ddcb-4535-98af-24fc91ec0b7e
 # ╟─e099528b-37a4-41a2-836b-69cb3ceda2f5
@@ -1135,27 +1173,30 @@ end
 # ╠═14314bcc-661a-4e84-886d-20c89c07a28e
 # ╠═c087392c-c411-4368-afcc-f9a104856884
 # ╟─6107a0ce-6f01-4d0b-bd43-78f2125ac185
-# ╟─e181540d-4334-47c4-b35d-99023c89a2c8
-# ╟─31a1cdc7-2491-42c1-9988-63650dfaa3e3
+# ╠═e181540d-4334-47c4-b35d-99023c89a2c8
+# ╠═31a1cdc7-2491-42c1-9988-63650dfaa3e3
 # ╟─c05d12f3-8b8a-4f34-bebc-77e376a980d0
 # ╠═87c0c3cb-7059-42ae-aed8-98a0ef2eb55f
 # ╟─f9b03b4d-c521-4456-b0b9-d4a301d8a813
 # ╠═355db008-9661-4e54-acd5-7c2c9ba3c7f5
-# ╠═0dca50da-4b07-4401-8089-06c91f339e61
 # ╠═564cbc7a-3125-4b67-843c-f4c74ccef51f
 # ╠═d20c1afe-6d5b-49bf-a0f2-a1bbb21c709f
 # ╠═e9687e3f-be56-44eb-af4d-f169558de0fd
-# ╟─e9a01524-90b1-4249-a51c-ec8d1624be5b
+# ╠═e9a01524-90b1-4249-a51c-ec8d1624be5b
+# ╠═85092f44-1db7-4e29-ab56-12ef1985d90e
 # ╟─4893bf14-446c-46a7-b695-53bac123ff99
 # ╠═7edf8ddf-2b6e-4a4b-8181-6b8bbdd22841
 # ╠═c98025f8-f942-498b-9368-5d524b141c62
 # ╠═d8642b83-e824-429e-ac3e-70e875a47d1a
 # ╟─90aff8bb-ed69-40d3-a22f-112f713f4b93
 # ╟─4fad0692-05dc-4c3b-9aae-cd9a43519e51
+# ╠═973b56e5-ef3c-4328-ad26-3ab63650537e
+# ╠═3d567640-78d6-4f76-b13e-95be6d5e9c64
 # ╠═06f064cf-fc0d-4f65-bd6b-ddb6e4154f6c
+# ╠═e2f1952d-8fc8-4749-9a88-bf5c61758e14
+# ╠═2bd1d018-986b-4370-95ba-e047e2c7b691
+# ╠═489c807d-2db1-4d9e-9e30-cab403b9281f
 # ╠═ac43808a-ef2a-472d-9a9e-c77257aaa535
-# ╠═ce159285-4e30-49e8-83dc-2c77a7aaf80d
-# ╠═3ba3a723-0e93-4a40-b2c9-8159a1b51e06
 # ╠═da37a5c8-b8ef-4131-a153-50c21461d9c4
 # ╠═a8b1a61c-6bd0-417b-8d58-8c8f8d77da7e
 # ╟─1a6c956e-38cc-4217-aff3-f303af0282a4

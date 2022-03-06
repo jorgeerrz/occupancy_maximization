@@ -9,8 +9,7 @@ using Plots,NPZ, PlutoUI,Images,Statistics
 
 # ╔═╡ 658631ab-5f8a-414a-b1c9-94e67c64b002
 begin
-	theme(:vibrant)
-	default(titlefont = ("Computer Modern",16), legend_font_family = "Computer Modern", legend_font_pointsize = 14, guidefont = ("Computer Modern", 16), tickfont = ("Computer Modern", 14),colorbar_titlefont = ("Computer Modern",14))
+	theme(:vibrant,titlefont = ("Computer Modern",16), legend_font_family = "Computer Modern", legend_font_pointsize = 14, guidefont = ("Computer Modern", 16), tickfont = ("Computer Modern", 14),colorbar_titlefont = ("Computer Modern",14))
 	PlutoUI.TableOfContents(aside = true)
 end
 
@@ -28,7 +27,10 @@ function draw_arena(plt,N)
 	#plot!(plt,[(2+offset,0+offset),(2+offset,2+offset),(3+offset,2+offset),(3+offset,3+offset),(0+offset,3+offset),(0+offset,N+offset),(N+offset,N+offset),(N+offset,3+offset),(N-3+offset,3+offset),(N-3+offset,2+offset),(N-2+offset,2+offset),(N-2+offset,0+offset),(2+offset,0+offset)],label = false,color = :black,lw = 2)
 	#Obstacle
 	plot!(plt,[(N-2+offset,0+offset),(N-2+offset,N+offset)],label = false,color = :red,lw = 4,ls = :dash)
+	plot!(plt,[(N-3+offset,0+offset),(N-3+offset,N+offset)],label = false,color = :red,lw = 4,ls = :dash)
 	#plot!(plt,[(2+offset,4+offset),(2+offset,N-1+offset),(3+offset,N-1+offset),(3+offset,4+offset),(2+offset,4+offset)],label = false, color = :black,lw = 2)
+		#Draw switch
+	plot!(plt, [1],[1],st = :scatter, label = false,color = :red, markershape = :rtriangle,markersize = 12)
 end
 
 # ╔═╡ 2c3b7b98-105a-4054-bee2-17ea1dd4f81b
@@ -65,7 +67,7 @@ begin
 	#Draw cat
 	plot!(arena, [location_cat[1]],[location_cat[2]],st = :scatter, label = false,color = :green, markershape = :dtriangle,markersize = 10)
 	#Draw mouse
-	plot!(arena, [location_mouse[1]],[location_mouse[2]],st = :scatter, label = false,color = :gray, markershape = :utriangle,markersize = 10)
+	plot!(arena, [location_mouse[1]],[location_mouse[2]],st = :scatter, label = false,color = :gray, markershape = :utriangle,markersize = 10,showaxis = false)
 	#savefig("arena.pdf")
 end
 
@@ -73,10 +75,10 @@ end
 md"# Occupations"
 
 # ╔═╡ 3157cbc9-007f-4eed-9b56-f7d82aa1f3da
-occupations_1 = npzread("Fig4/focc_vid_test_zformedW_friendly2 nk1gamma0.98N5F2beta2.0miop0nz0.0has1.0nconf2_steps500")
+occupations_1 = npzread("focc_vid_keycorner_zformedW_friendly2 shortcc nk1gamma0.98N5F2beta2.0miop0nz0.0has1.0nconf2_steps2000")
 
 # ╔═╡ d2bb067b-fc16-4164-ad13-6b5e5b1a905c
-occupations_0 = npzread("Fig4/focc_vid_test_zformedW_friendly2 nk1gamma0.98N5F2beta2.0miop0nz0.0has0.0nconf2_steps500")
+occupations_0 = npzread("focc_vid_keycorner_zformedW_friendly2 shortcc nk1gamma0.98N5F2beta2.0miop0nz0.0has0.0nconf2_steps2000")
 
 # ╔═╡ 802ec9c4-759e-4531-afa4-5697c3153332
 begin
@@ -101,12 +103,12 @@ sum(occs_1),sum(occs_0)
 
 # ╔═╡ e0ea04ce-4b73-417a-8939-16aaddf7894d
 begin
-	lim_occs = (0,0.07)
+	lim_occs = (0,0.09)
 	plot_occ_1 = plot(grid = false,minorgrid = false, ticks = false,title = "Friend of (A-S)-H agent")
 	plot_occ_0 = plot(grid = false,minorgrid = false, ticks = false,title = "Friend of (A)-H agent")
 	#Plot occupations
-	plot!(plot_occ_1,transpose(occs_1)/sum(occs_1), st = :heatmap, cbar = false, clim = lim_occs)
-	plot!(plot_occ_0,transpose(occs_0)/sum(occs_0), st = :heatmap,clim = lim_occs)#,cbar_title = "Visitations")
+	plot!(plot_occ_1,transpose(occs_1)/sum(occs_1), st = :heatmap, clim = lim_occs)
+	plot!(plot_occ_0,transpose(occs_0)/sum(occs_0), st = :heatmap, cbar = false,clim = lim_occs)#,cbar_title = "Visitations")
 	#Plot arena
 	draw_arena(plot_occ_1,N)
 	draw_arena(plot_occ_0,N)
@@ -123,37 +125,45 @@ begin
 	# 		end
 	# 	end
 	# end
-	plot(plot_occ_1,plot_occ_0,layout = Plots.grid(1, 2, widths=[0.45,0.55]),size = (800,400),margin = 4Plots.mm)
+	plot(plot_occ_0,plot_occ_1,layout = Plots.grid(1, 2, widths=[0.45,0.55]),size = (800,400),margin = 4Plots.mm)
 	#savefig("occupations_episode.png")
 end
 
 # ╔═╡ ab4c8719-75f2-4987-b7a3-3b5d022a6859
 md"# Beta"
 
+# ╔═╡ f71d7cb3-adb7-47c1-80e7-b5dd3dc01750
+file2 = npzread("fig4_longsim/cc_11x10_0_test_zformedW_friendly2 nk11gamma0.98N5F2beta2.0miop0nz0.0has1.0nconf2")
+
 # ╔═╡ e15f1acf-5cc4-422d-9241-9d34435854d8
 begin
 	n_betas = 11
-	n_episodes = 7*10
+	n_episodes = 10
 	open_rate = zeros(n_episodes,n_betas)
 	length_episode = 1#1000
-	for i in 0:6
-		file = npzread("fig4_longsim/cc_11x10_$(i)_test_zformedW_friendly2 nk11gamma0.98N5F2beta2.0miop0nz0.0has1.0nconf2")
+	i = 0
+	# for i in 0:6
+	# 	file = npzread("fig4_longsim/cc_11x10_$(i)_test_zformedW_friendly2 nk11gamma0.98N5F2beta2.0miop0nz0.0has1.0nconf2")
+	file = npzread("cc0_11x10_vid_keycorner_zformedW_friendly2 shortcc nk11gamma0.98N5F2beta2.0miop0nz0.0has1.0nconf2")
 		for j in 1:n_betas
 			for k in 1:10
 				open_rate[i*10 + k,j] = file[10*(j-1)+k,2]/(file[10*(j-1)+k,1]+file[10*(j-1)+k,2])
 			end
 		end
-	end
+	#end
 end
+
+# ╔═╡ cbba5e8e-933a-432c-870f-dfab24b38679
+file
 
 # ╔═╡ 18527de7-418c-4d4c-a7b8-a5cd0be439f7
 begin
-	plot(collect(0:0.1:1),transpose(mean(open_rate,dims = 1)),ribbon = std(open_rate,dims = 1)/sqrt(n_episodes),label = false,ylabel = "Fraction of time wall open", xlabel = "\$\\beta\$",minorgrid = false,margin = 3Plots.mm,size = (400,400))
-	#savefig("open_wall.pdf")
+	plot(collect(0:0.1:1),transpose(mean(open_rate,dims = 1)),ribbon = transpose(std(open_rate,dims = 1))/sqrt(n_episodes),label = false,ylabel = "Fraction of time wall open", xlabel = "\$\\beta\$",minorgrid = false,margin = 3Plots.mm,size = (400,400))
+	#savefig("open_wall_new.pdf")
 end
 
 # ╔═╡ 6a40326f-ac8a-44cc-b38e-e0d9410ed099
-transpose(mean(open_rate,dims = 1))
+std(open_rate,dims=1)/sqrt(n_episodes)
 
 # ╔═╡ 5a07e68c-d035-4c0f-b30d-02a698364d81
 what = npzread("fig4_longsim/bo_11x10_0_test_zformedW_friendly2 nk11gamma0.98N5F2beta2.0miop0nz0.0has1.0nconf2")
@@ -1649,6 +1659,8 @@ version = "0.9.1+5"
 # ╠═c0fb9d84-b44f-4db2-9a02-153b26f15f27
 # ╠═e0ea04ce-4b73-417a-8939-16aaddf7894d
 # ╟─ab4c8719-75f2-4987-b7a3-3b5d022a6859
+# ╠═cbba5e8e-933a-432c-870f-dfab24b38679
+# ╠═f71d7cb3-adb7-47c1-80e7-b5dd3dc01750
 # ╠═e15f1acf-5cc4-422d-9241-9d34435854d8
 # ╠═18527de7-418c-4d4c-a7b8-a5cd0be439f7
 # ╠═6a40326f-ac8a-44cc-b38e-e0d9410ed099
